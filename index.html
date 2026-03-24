@@ -213,17 +213,16 @@ code{background:var(--gold-light);padding:1px 5px;border-radius:4px;font-size:.8
   .screen{padding:.75rem .5rem}
   .login-wrap{padding-top:2rem}
   .login-wrap h1{font-size:1.7rem}
-  .name-input{font-size:16px} /* prevent iOS zoom */
+  .name-input{font-size:16px}
   .site-header{padding:.75rem .75rem .5rem}
   .site-title{font-size:1.2rem}
-  .nav-tab{padding:10px 4px;font-size:.76rem}
+  .nav-tab{padding:12px 6px;font-size:.76rem;min-height:44px;display:flex;align-items:center;justify-content:center}
   .results-grid{grid-template-columns:1fr}
   .team-grid{grid-template-columns:1fr 1fr}
-  .team-name-input{font-size:16px} /* prevent iOS zoom */
-  input[type=text],input[type=password],input[type=datetime-local]{font-size:16px} /* prevent iOS zoom */
-  .result-btn{padding:12px 10px;font-size:.85rem;min-height:44px} /* touch target */
-  .btn{min-height:44px}
-  .btn-sm{min-height:36px}
+  .team-name-input{font-size:16px}
+  input[type=text],input[type=password],input[type=datetime-local]{font-size:16px}
+  .result-btn{padding:12px 10px;font-size:.85rem;min-height:44px}
+  .btn-primary,.btn-secondary,.btn-danger{min-height:44px}
   .toggle{width:48px;height:26px}
   .toggle-dot{width:20px;height:20px}
   .toggle.on .toggle-dot{left:24px}
@@ -231,30 +230,27 @@ code{background:var(--gold-light);padding:1px 5px;border-radius:4px;font-size:.8
   .participant-row{flex-wrap:wrap;gap:8px}
   .settings-row{flex-wrap:wrap;gap:10px;padding:14px 0}
   .modal{padding:1.5rem 1.25rem}
-  /* bracket horizontal scroll with momentum */
-  .bracket-scroll{-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
-  /* taller touch targets in bracket */
+  .bracket-scroll{-webkit-overflow-scrolling:touch}
   .ts{min-height:100px}
   .t-label{padding:6px 4px 5px}
   .t-name{font-size:.72rem}
   .final-slot{min-height:100px;min-width:80px}
-  /* champ box smaller on mobile */
   .finals-row > div:nth-child(2){min-width:110px;padding:8px}
-  /* header meta row wrap */
   .header-user-row{flex-wrap:wrap;gap:4px}
 }
 
-/* Touch active states for mobile (no hover) */
+/* Remove transition delays on touch devices — makes everything feel instant */
 @media(hover:none){
+  .btn,.nav-tab,.result-btn,.view-bracket-row,.ts,.final-slot{transition:none}
   .ts:active:not(.nc):not(.empty){border-color:var(--gold);background:var(--gold-light)}
   .ts:active:not(.nc):not(.empty) .t-label{background:var(--gold-light)}
   .final-slot:active:not(.nc){border-color:var(--gold)}
   .final-slot:active:not(.nc) .t-label{background:var(--gold-light)}
   .result-btn:active{border-color:var(--gold);background:var(--gold-light)}
-  .btn:active{opacity:.85}
+  .btn:active{opacity:.9}
+  .nav-tab:active{background:var(--white)}
   .view-bracket-row:active{border-color:var(--gold)}
 }
-
 </style>
 </head>
 <body>
