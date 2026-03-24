@@ -103,7 +103,7 @@ h1,h2,h3{font-family:'Playfair Display',serif}
 .r-body{display:flex;flex-direction:column;flex:1;padding:6px 4px}
 .mg{display:flex;flex-direction:column;justify-content:center;flex:1;padding:4px 2px;position:relative}
 .mg-conn::after{content:'';position:absolute;right:-5px;top:25%;bottom:25%;width:5px;border-top:1.5px solid var(--border);border-right:1.5px solid var(--border);border-bottom:1.5px solid var(--border);border-radius:0 4px 4px 0;z-index:1}
-.ts{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;background:var(--white);border:1px solid var(--border);font-size:.74rem;cursor:pointer;transition:all .12s;position:relative;text-align:center;overflow:hidden}
+.ts{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;background:var(--white);border:1px solid var(--border);font-size:.74rem;cursor:pointer;transition:all .12s;position:relative;text-align:center;overflow:hidden;touch-action:manipulation}
 .ts:first-child{border-radius:6px 6px 0 0}
 .ts:last-child{border-radius:0 0 6px 6px;border-top-color:transparent}
 .ts:hover:not(.nc):not(.empty){border-color:var(--gold);z-index:2}
@@ -116,9 +116,9 @@ h1,h2,h3{font-family:'Playfair Display',serif}
 .ts.wrong .t-label{background:var(--coral-light)}
 .ts.empty{color:var(--muted);cursor:default;background:var(--cream);font-style:italic;min-height:120px;justify-content:center}
 .ts.nc{cursor:default}
-.t-img{width:100%;aspect-ratio:3/4;object-fit:contain;object-position:center;background:var(--cream);display:block}
-.t-ph{width:100%;height:90px;background:var(--gold-light);display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:var(--gold-dark);font-weight:500}
-.t-label{width:100%;padding:5px 4px 4px;background:var(--white);border-top:1px solid var(--border)}
+.t-img{width:100%;aspect-ratio:3/4;object-fit:contain;object-position:center;background:var(--cream);display:block;pointer-events:none}
+.t-ph{width:100%;height:90px;background:var(--gold-light);display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:var(--gold-dark);font-weight:500;pointer-events:none}
+.t-label{width:100%;padding:5px 4px 4px;background:var(--white);border-top:1px solid var(--border);pointer-events:none}
 .t-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3;font-size:.71rem;color:var(--ink)}
 .t-seed{display:block;font-size:.6rem;color:var(--muted)}
 .champ-box{background:var(--gold-light);border:2px solid var(--gold);border-radius:12px;padding:14px 10px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
@@ -128,7 +128,7 @@ h1,h2,h3{font-family:'Playfair Display',serif}
 .finals-row{display:flex;align-items:center;justify-content:center;background:var(--cream);border:1px solid var(--border);border-radius:14px;overflow:hidden;min-width:1100px}
 .final-half{flex:1;display:flex;align-items:center;justify-content:center;padding:12px 16px;gap:8px;border-right:1px solid var(--border)}
 .final-half:last-child{border-right:none}
-.final-slot{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;background:var(--white);border:1px solid var(--border);border-radius:8px;font-size:.74rem;min-width:90px;cursor:pointer;transition:all .12s;text-align:center;overflow:hidden}
+.final-slot{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;background:var(--white);border:1px solid var(--border);border-radius:8px;font-size:.74rem;min-width:90px;cursor:pointer;transition:all .12s;text-align:center;overflow:hidden;touch-action:manipulation}
 .final-slot:hover:not(.nc) .t-label{background:var(--gold-light)}
 .final-slot:hover:not(.nc){border-color:var(--gold)}
 .final-slot.winner{border-color:var(--gold);border-width:2px}
@@ -251,6 +251,44 @@ code{background:var(--gold-light);padding:1px 5px;border-radius:4px;font-size:.8
   .nav-tab:active{background:var(--white)}
   .view-bracket-row:active{border-color:var(--gold)}
 }
+
+/* Mobile matchup cards */
+.matchup-card-wrap{padding:.5rem 0}
+.matchup-progress{text-align:center;font-size:.78rem;color:var(--muted);margin-bottom:.5rem;font-weight:500}
+.matchup-round-label{text-align:center;font-size:.72rem;color:var(--gold-dark);text-transform:uppercase;letter-spacing:.6px;font-weight:500;margin-bottom:.5rem}
+.matchup-card{background:var(--white);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:.75rem}
+.matchup-vs{display:flex;align-items:stretch}
+.matchup-pick{flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;padding:0;touch-action:manipulation;overflow:hidden;background:var(--white)}
+.matchup-pick img,.matchup-pick .pick-ph{width:100%;aspect-ratio:3/4;object-fit:contain;background:var(--cream);display:block;pointer-events:none}
+.matchup-pick .pick-ph{display:flex;align-items:center;justify-content:center;font-size:2rem;color:var(--gold-dark)}
+.matchup-pick .pick-name{width:100%;padding:10px 8px 12px;text-align:center;font-size:.88rem;font-weight:500;color:var(--ink);background:var(--white);pointer-events:none;line-height:1.3}
+.matchup-pick .pick-seed{font-size:.7rem;color:var(--muted);font-weight:400;display:block;margin-top:2px}
+.matchup-pick.selected{background:var(--gold-light)}
+.matchup-pick.selected .pick-name{background:var(--gold-light);color:var(--gold-dark)}
+.matchup-pick.correct{background:#E8F5E9}
+.matchup-pick.correct .pick-name{background:#E8F5E9;color:#2E7D32}
+.matchup-pick.wrong{background:var(--coral-light)}
+.matchup-pick.wrong .pick-name{background:var(--coral-light);color:var(--coral)}
+.matchup-pick.locked{cursor:default}
+.matchup-pick:active:not(.locked){opacity:.85}
+.vs-divider{display:flex;align-items:center;justify-content:center;width:28px;flex-shrink:0;background:var(--cream);font-size:.68rem;font-weight:500;color:var(--muted);border-left:.5px solid var(--border);border-right:.5px solid var(--border)}
+.matchup-nav{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid var(--border);gap:8px;background:var(--cream)}
+.matchup-nav-btn{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border:1.5px solid var(--border);border-radius:50%;background:var(--white);cursor:pointer;font-size:1.2rem;touch-action:manipulation;flex-shrink:0}
+.matchup-nav-btn:active{background:var(--gold-light);border-color:var(--gold)}
+.matchup-nav-btn.disabled{opacity:.25;pointer-events:none}
+.matchup-dots{display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:center;flex:1}
+.matchup-dot{width:8px;height:8px;border-radius:50%;background:var(--border);cursor:pointer;touch-action:manipulation}
+.matchup-dot.active{background:var(--gold);width:20px;border-radius:4px}
+.matchup-dot.picked{background:var(--sage)}
+.champ-card{background:var(--white);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:.75rem}
+.champ-card-header{background:var(--gold-light);padding:10px;text-align:center;font-size:.82rem;font-weight:500;color:var(--gold-dark);border-bottom:1px solid var(--border)}
+.champ-card-slots{display:flex;gap:10px;padding:12px;justify-content:center}
+.champ-slot{flex:1;max-width:140px;display:flex;flex-direction:column;align-items:center;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;cursor:pointer;touch-action:manipulation;background:var(--white)}
+.champ-slot img{width:100%;aspect-ratio:3/4;object-fit:contain;background:var(--cream);display:block;pointer-events:none}
+.champ-slot .pick-name{width:100%;padding:8px 4px;text-align:center;font-size:.8rem;font-weight:500;pointer-events:none;color:var(--ink)}
+.champ-slot.selected{border-color:var(--gold);background:var(--gold-light)}
+.champ-slot.selected .pick-name{color:var(--gold-dark)}
+.champ-slot:active{opacity:.85}
 </style>
 </head>
 <body>
@@ -325,7 +363,8 @@ let lbScores = [];
 let syncStatus = 'ok';
 let saveTimer = null;
 let poolUnsubscribe = null;
-let isSaving = false; // prevent listener re-render during saves
+let isSaving = false;
+let mobileMatchupIdx = 0; // current matchup index in mobile card view
 
 const SC = [1, 2, 4, 8];
 
@@ -511,14 +550,17 @@ function renderTab() {
 }
 
 // ── BRACKET ──
+function isMobile() { return window.innerWidth <= 700; }
+
 function renderBracket(br, edit) {
   if (!br) return '<div class="empty-state">No bracket found.</div>';
+  if (isMobile() && !isComm) return renderMobileBracket(br, edit);
   const locked = !edit;
   const ar = pool.actualResults || {};
   let html = '';
   if (!pool.initialized) html += `<div class="alert alert-warn">The commissioner hasn't set up the teams yet. Check back soon!</div>`;
   if (locked && (pool.settings.locked || dlPast())) html += `<div class="alert alert-info">Brackets are locked — your picks are saved!</div>`;
-  if (!locked) html += `<div class="alert alert-hint">Click a team name to advance them to the next round</div>`;
+  if (!locked) html += `<div class="alert alert-hint">Click a team to advance them to the next round</div>`;
 
   html += `<div class="bracket-scroll"><div class="bracket-groups">`;
 
@@ -531,7 +573,6 @@ function renderBracket(br, edit) {
       <div class="group-header">Seeds 1–8</div>
       <div class="group-tree">`;
 
-    // Round of 8
     html += `<div class="r-col" style="flex:2;min-width:120px">
       <div class="r-header">Round of 8</div><div class="r-body">`;
     mups(0,g).forEach((pair,mi) => {
@@ -539,7 +580,6 @@ function renderBracket(br, edit) {
     });
     html += `</div></div>`;
 
-    // Quarterfinals
     html += `<div class="r-col" style="flex:2;min-width:120px">
       <div class="r-header">Quarterfinals</div><div class="r-body">`;
     mups(1,g).forEach((pair,mi) => {
@@ -547,7 +587,6 @@ function renderBracket(br, edit) {
     });
     html += `</div></div>`;
 
-    // Semifinals
     html += `<div class="r-col" style="flex:2;min-width:120px">
       <div class="r-header">Semifinals</div><div class="r-body">`;
     mups(2,g).forEach((pair,mi) => {
@@ -555,7 +594,6 @@ function renderBracket(br, edit) {
     });
     html += `</div></div>`;
 
-    // Group Winner
     const gWinner = g.r3 ? g.r3[0] : null;
     const gt = T(gWinner);
     html += `<div class="r-col" style="flex:1.5;min-width:120px;border-right:none">
@@ -572,19 +610,14 @@ function renderBracket(br, edit) {
         </div>
       </div>
     </div>`;
-
     html += `</div></div>`;
   });
 
-  // Championship
   const gAw = br.gA ? br.gA.r3[0] : null;
   const gBw = br.gB ? br.gB.r3[0] : null;
   const ct = T(br.champ);
-
   html += `<div class="finals-row">
-    <div class="final-half">
-      ${fSlot(gAw, br, ar, locked)}
-    </div>
+    <div class="final-half">${fSlot(gAw, br, ar, locked)}</div>
     <div style="display:flex;flex-direction:column;align-items:center;padding:12px 16px;gap:6px;min-width:150px">
       <div class="champ-box" style="padding:0;overflow:hidden;width:130px;border-radius:12px;">
         <div style="font-size:.9rem;padding:6px 0 4px;background:var(--gold-light)">🏆 Champion</div>
@@ -596,12 +629,137 @@ function renderBracket(br, edit) {
         </div>
       </div>
     </div>
-    <div class="final-half" style="flex-direction:row-reverse;border-right:none;border-left:1px solid var(--border)">
-      ${fSlot(gBw, br, ar, locked)}
-    </div>
+    <div class="final-half" style="flex-direction:row-reverse;border-right:none;border-left:1px solid var(--border)">${fSlot(gBw, br, ar, locked)}</div>
+  </div>`;
+  html += `</div></div>`;
+  return html;
+}
+
+function renderMobileBracket(br, edit) {
+  const locked = !edit;
+  const ar = pool.actualResults || {};
+
+  // Build flat list of all matchups across both groups + final
+  // Format: {gkey, round, mi, roundName, groupLabel}
+  const allMatchups = [];
+  ['A','B'].forEach(gk => {
+    const gkey = 'g'+gk;
+    const g = br[gkey] || defaultBracket()[gkey];
+    const rnames = ['Round of 8','Quarterfinals','Semifinals','Group Final'];
+    for (let ri = 0; ri < 4; ri++) {
+      const pairs = mups(ri, g);
+      pairs.forEach((pair, mi) => {
+        const t0 = T(pair[0]), t1 = T(pair[1]);
+        if (!t0?.name && !t1?.name) return;
+        allMatchups.push({gkey, round:ri, mi, roundName:rnames[ri]});
+      });
+    }
+  });
+  // Championship
+  const gAw = br.gA ? br.gA.r3[0] : null;
+  const gBw = br.gB ? br.gB.r3[0] : null;
+  if (T(gAw)?.name || T(gBw)?.name) {
+    allMatchups.push({gkey:'champ', round:-1, mi:0, roundName:'Championship'});
+  }
+
+  const total = allMatchups.length;
+  const idx = Math.min(mobileMatchupIdx, total - 1);
+  const current = allMatchups[idx];
+
+  let html = '';
+  if (!pool.initialized) {
+    html += `<div class="alert alert-warn">The commissioner hasn't set up the teams yet. Check back soon!</div>`;
+    return html;
+  }
+  if (locked && (pool.settings.locked || dlPast())) {
+    html += `<div class="alert alert-info">Brackets are locked — your picks are saved!</div>`;
+  }
+
+  html += `<div class="matchup-card-wrap">`;
+  html += `<div class="matchup-round-label">${current.roundName}</div>`;
+  html += `<div class="matchup-progress">Match ${idx+1} of ${total}</div>`;
+
+  if (current.gkey === 'champ') {
+    // Championship card
+    const ta = T(gAw), tb = T(gBw);
+    const isWinA = br.champ === gAw, isWinB = br.champ === gBw;
+    const aWin = ar.champ === gAw, bWin = ar.champ === gBw;
+    html += `<div class="champ-card">
+      <div class="champ-card-header">🏆 Pick the Champion</div>
+      <div class="champ-card-slots">`;
+    [gAw, gBw].forEach(tid => {
+      const t = T(tid);
+      const isWin = br.champ === tid;
+      const aW = ar.champ === tid;
+      const aL = ar.champ !== null && ar.champ !== undefined && ar.champ !== tid;
+      let cls = 'champ-slot';
+      if (isWin && aW) cls += ' selected correct';
+      else if (isWin && aL) cls += ' selected wrong';
+      else if (isWin) cls += ' selected';
+      if (locked) cls += ' locked';
+      const click = (!locked && t?.name) ? `onclick="window._pickChamp(${tid})"` : '';
+      html += `<div class="${cls}" ${click}>
+        ${t?.img ? `<img src="${t.img}" alt="${t.name}">` : `<div style="width:100%;aspect-ratio:3/4;background:var(--gold-light);display:flex;align-items:center;justify-content:center;font-size:1.5rem">${(t?.name||'?').slice(0,2).toUpperCase()}</div>`}
+        <div class="pick-name">${t?.name || 'TBD'}</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  } else {
+    // Regular matchup card
+    const {gkey, round, mi} = current;
+    const g = br[gkey] || defaultBracket()[gkey];
+    const ag = ar[gkey] || {};
+    const pair = mups(round, g)[mi] || [null, null];
+    const nextRk = round < 3 ? 'r'+(round+1) : null;
+
+    html += `<div class="matchup-card"><div class="matchup-vs">`;
+    pair.forEach((tid, pi) => {
+      const t = T(tid);
+      const isWin = nextRk ? g[nextRk]?.[mi] === tid : false;
+      const aNext = nextRk ? ag[nextRk] : null;
+      const aWin = aNext?.[mi] === tid;
+      const aLose = aNext && aNext[mi] !== null && aNext[mi] !== undefined && aNext[mi] !== tid;
+      let cls = 'matchup-pick' + (pi === 0 ? ' left' : ' right');
+      if (!t?.name) cls += ' locked';
+      else if (isWin && aWin) cls += ' selected correct';
+      else if (isWin && aLose && round > 0) cls += ' selected wrong';
+      else if (isWin) cls += ' selected';
+      if (locked || round === 0) cls += ' locked';
+      const canPick = !locked && t?.name && round > 0;
+      const click = canPick ? `onclick="window._pickGroup('${gkey}',${round-1},${mi},${tid})"` : '';
+      html += `<div class="${cls}" ${click}>
+        ${t?.img ? `<img src="${t.img}" alt="${t?.name||''}">` : `<div class="pick-ph">${(t?.name||'?').slice(0,2).toUpperCase()}</div>`}
+        <div class="pick-name">${t?.name || 'TBD'}<span class="pick-seed">#${t?.seed||'—'}</span></div>
+      </div>`;
+      if (pi === 0) html += `<div class="vs-divider">VS</div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Navigation dots + arrows
+  const hasPrev = idx > 0;
+  const hasNext = idx < total - 1;
+  html += `<div class="matchup-nav">
+    <div class="matchup-nav-btn${hasPrev?'':' disabled'}" onclick="window._mobileNav(${idx-1})">←</div>
+    <div class="matchup-dots">`;
+  allMatchups.forEach((_, i) => {
+    const m = allMatchups[i];
+    let picked = false;
+    if (m.gkey === 'champ') {
+      picked = br.champ !== null && br.champ !== undefined;
+    } else {
+      const g = br[m.gkey] || defaultBracket()[m.gkey];
+      const nextRk = m.round < 3 ? 'r'+(m.round+1) : null;
+      if (nextRk) picked = g[nextRk]?.[m.mi] !== null && g[nextRk]?.[m.mi] !== undefined;
+    }
+    let dotCls = 'matchup-dot' + (i === idx ? ' active' : '') + (picked && i !== idx ? ' picked' : '');
+    html += `<div class="${dotCls}" onclick="window._mobileNav(${i})"></div>`;
+  });
+  html += `</div>
+    <div class="matchup-nav-btn${hasNext?'':' disabled'}" onclick="window._mobileNav(${idx+1})">→</div>
   </div>`;
 
-  html += `</div></div>`;
+  html += `</div>`; // matchup-card-wrap
   return html;
 }
 
@@ -869,6 +1027,7 @@ window._logout = () => {
 
 window._go = async (t) => {
   tab = t;
+  if (t === 'bracket') mobileMatchupIdx = 0;
   if (t === 'leaderboard' || t === 'view') await refreshLBScores();
   render();
 };
@@ -893,7 +1052,21 @@ function clearDown(g, round, slot, wid) {
   }
 }
 
-window._pickChamp = (tid) => {
+window._mobileNav = (idx) => {
+  mobileMatchupIdx = Math.max(0, idx);
+  render();
+};
+
+// Swipe support for mobile bracket
+let swipeStartX = 0;
+document.addEventListener('touchstart', e => { swipeStartX = e.touches[0].clientX; }, {passive:true});
+document.addEventListener('touchend', e => {
+  if (tab !== 'bracket' || !isMobile() || isComm) return;
+  const dx = e.changedTouches[0].clientX - swipeStartX;
+  if (Math.abs(dx) < 50) return;
+  if (dx < 0) window._mobileNav(mobileMatchupIdx + 1);
+  else window._mobileNav(mobileMatchupIdx - 1);
+}, {passive:true});
   if (!editable()) return;
   myBracket.champ = tid;
   render();
