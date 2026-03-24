@@ -417,9 +417,13 @@ function debounceSave(fn, ms=900) {
 async function savePool() {
   setSyncStatus('syncing');
   isSaving = true;
-  const ok = await dbSet('pool', pool);
-  isSaving = false;
-  setSyncStatus(ok ? 'ok' : 'err');
+  try {
+    const ok = await dbSet('pool', pool);
+    setSyncStatus(ok ? 'ok' : 'err');
+    return ok;
+  } finally {
+    isSaving = false;
+  }
 }
 
 async function saveMyBracket() {
@@ -993,25 +997,24 @@ window._playerLogin = async () => {
   if (!n) { document.getElementById('lerr').textContent='Please enter your name.'; return; }
   showLoading('Joining the pool...');
 
-  // Timeout wrapper — if Firebase takes >10s, show an error instead of spinning forever
-  const withTimeout = (promise, ms, msg) => Promise.race([
+  const withTimeout = (promise, ms) => Promise.race([
     promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms))
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
   ]);
 
   try {
-    const existing = await withTimeout(dbGet('pool'), 10000, 'timeout');
+    const existing = await withTimeout(dbGet('pool'), 10000);
     pool = existing || defaultPool();
     user = n; isComm = false;
     if (!pool.participants) pool.participants = [];
     if (!pool.participants.includes(n)) {
       pool.participants.push(n);
-      await withTimeout(savePool(), 8000, 'timeout');
+      await withTimeout(savePool(), 8000);
     }
     const key = sanitizeKey(n);
-    const br = await withTimeout(dbGet('brackets/' + key), 8000, 'timeout');
+    const br = await withTimeout(dbGet('brackets/' + key), 8000);
     myBracket = br || defaultBracket();
-    if (!br) await dbSet('brackets/' + key, myBracket);
+    if (!br) await withTimeout(dbSet('brackets/' + key, myBracket), 8000);
 
     if (poolUnsubscribe) poolUnsubscribe();
     poolUnsubscribe = dbListen('pool', data => {
@@ -1025,14 +1028,14 @@ window._playerLogin = async () => {
     if (el) window._mobileSwipe(el);
 
   } catch(err) {
-    // Show friendly error instead of infinite spinner
+    console.error('Login error:', err);
+    isSaving = false; // reset in case savePool left it true
     user = null; pool = null;
-    document.getElementById('app').innerHTML = renderLogin();
-    attachLogin();
-    document.getElementById('lerr').textContent =
-      err.message === 'timeout'
-        ? 'Connection timed out. Check your internet and try again.'
-        : 'Something went wrong. Please try again.';
+    render(); // render() will show login screen since user is null
+    const lerr = document.getElementById('lerr');
+    if (lerr) lerr.textContent = err.message === 'timeout'
+      ? 'Connection timed out. Check your internet and try again.'
+      : 'Could not connect to the pool. Check your internet and try again.';
   }
 };
 
@@ -1059,10 +1062,11 @@ window._doCommLogin = async () => {
     });
     tab = 'setup'; render();
   } catch(err) {
-    document.getElementById('comm-error').textContent =
-      err.message === 'timeout'
-        ? 'Connection timed out. Check your internet and try again.'
-        : 'Something went wrong. Please try again.';
+    console.error('Comm login error:', err);
+    isSaving = false;
+    document.getElementById('comm-error').textContent = err.message === 'timeout'
+      ? 'Connection timed out. Try again.'
+      : 'Could not connect. Check your internet and try again.';
   }
 };
 
