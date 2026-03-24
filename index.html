@@ -306,8 +306,8 @@ code{background:var(--gold-light);padding:1px 5px;border-radius:4px;font-size:.8
     <p>Enter your commissioner password to manage the pool.</p>
     <input type="password" id="comm-pass" placeholder="Password..." style="width:100%;margin-bottom:12px;text-align:center">
     <div style="display:flex;gap:8px">
-      <button class="btn btn-secondary" style="flex:1;justify-content:center" onclick="closeComm()">Cancel</button>
-      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="doCommLogin()">Enter</button>
+      <button class="btn btn-secondary" style="flex:1;justify-content:center" onclick="window.closeComm()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="window._doCommLogin()">Enter</button>
     </div>
     <div id="comm-error" style="color:var(--coral);font-size:.8rem;margin-top:8px"></div>
     <p style="font-size:.7rem;color:var(--border);margin-top:8px">Default password: bookworm</p>
@@ -736,11 +736,13 @@ function renderMobileBracket(br, edit) {
       let cls = 'matchup-pick' + (pi === 0 ? ' left' : ' right');
       if (!t?.name) cls += ' locked';
       else if (isWin && aWin) cls += ' selected correct';
-      else if (isWin && aLose && round > 0) cls += ' selected wrong';
+      else if (isWin && aLose) cls += ' selected wrong';
       else if (isWin) cls += ' selected';
-      if (locked || round === 0) cls += ' locked';
-      const canPick = !locked && t?.name && round > 0;
-      const click = canPick ? `onclick="window._pickGroup('${gkey}',${round-1},${mi},${tid})"` : '';
+      if (locked) cls += ' locked';
+      // On mobile, all rounds are pickable (round 0 picks advance into r1)
+      const canPick = !locked && t?.name;
+      const pickRound = round; // _pickGroup uses fromRound which maps to next round
+      const click = canPick ? `onclick="window._pickGroup('${gkey}',${round},${mi},${tid})"` : '';
       html += `<div class="${cls}" ${click}>
         ${t?.img ? `<img src="${t.img}" alt="${t?.name||''}">` : `<div class="pick-ph">${(t?.name||'?').slice(0,2).toUpperCase()}</div>`}
         <div class="pick-name">${t?.name || 'TBD'}<span class="pick-seed">#${t?.seed||'—'}</span></div>
@@ -956,11 +958,11 @@ function renderSettings() {
     </div>
     <div class="settings-row">
       <div><div class="settings-label">Submission deadline</div><div class="settings-desc">Brackets auto-lock at this time</div></div>
-      <input type="datetime-local" value="${s.deadline||''}" onchange="pool.settings.deadline=this.value;savePool()" style="font-size:.78rem">
+      <input type="datetime-local" value="${s.deadline||''}" onchange="window._setDeadline(this.value)" style="font-size:.78rem">
     </div>
     <div class="settings-row" style="border:none">
       <div><div class="settings-label">Commissioner password</div></div>
-      <input type="text" value="${s.commPass}" onchange="pool.settings.commPass=this.value;savePool()" style="width:130px">
+      <input type="text" value="${s.commPass}" onchange="window._setCommPass(this.value)" style="width:130px">
     </div>
   </div>
   <div class="card">
@@ -982,7 +984,9 @@ window._openComm = () => {
   document.getElementById('comm-pass').value='';
   document.getElementById('comm-error').textContent='';
 };
-window.closeComm = () => document.getElementById('comm-modal').classList.add('hidden');
+window._setDeadline = (v) => { pool.settings.deadline = v; savePool(); };
+window._setCommPass = (v) => { pool.settings.commPass = v; savePool(); };
+window.savePool = savePool;
 
 window._playerLogin = async () => {
   const n = document.getElementById('ln').value.trim();
