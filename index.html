@@ -280,6 +280,7 @@ code{background:var(--gold-light);padding:1px 5px;border-radius:4px;font-size:.8
 .matchup-dot{width:8px;height:8px;border-radius:50%;background:var(--border);cursor:pointer;touch-action:manipulation}
 .matchup-dot.active{background:var(--gold);width:20px;border-radius:4px}
 .matchup-dot.picked{background:var(--sage)}
+.matchup-dot.locked-dot{background:var(--border);opacity:.4}
 .champ-card{background:var(--white);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:.75rem}
 .champ-card-header{background:var(--gold-light);padding:10px;text-align:center;font-size:.82rem;font-weight:500;color:var(--gold-dark);border-bottom:1px solid var(--border)}
 .champ-card-slots{display:flex;gap:10px;padding:12px;justify-content:center}
@@ -700,129 +701,266 @@ function renderMobileBracket(br, edit) {
   const locked = !edit;
   const ar = pool.actualResults || {};
 
-  // Build flat list of all matchups across both groups + final
-  // Format: {gkey, round, mi, roundName, groupLabel}
-  const allMatchups = [];
-  ['A','B'].forEach(gk => {
-    const gkey = 'g'+gk;
-    const g = br[gkey] || defaultBracket()[gkey];
-    const rnames = ['Round of 8','Quarterfinals','Semifinals','Group Final'];
+  if (!pool.initialized) {
+    return `<div class="alert alert-warn">The commissioner hasn't set up the teams yet. Check back soon!</div>`;
+  }
+
+  // ── Seeding order: 1v8, 2v7, 3v6, 4v5 within each group ──
+  // Group A: teams 0-7 (seeds 1-8), Group B: teams 8-15 (seeds 1-8)
+  // Standard bracket seeding pairs by index within group: [0,7],[1,6],[2,5],[3,4]
+  const seedPairs = [[0,7],[1,6],[2,5],[3,4]];
+
+  // Build ordered r0 for each group based on seeding
+  function getOrderedR0(gkey) {
+    const base = gkey === 'gA' ? 0 : 8;
+    return seedPairs.map(([a,b]) => [base+a, base+b]);
+  }
+
+  // Check if all matchups in a round are picked
+  function roundComplete(gkey, round) {
+    const g = br[gkey];
+    const nextRk = 'r'+(round+1);
+    if (!g[nextRk]) return false;
+    const pairs = round === 0 ? getOrderedR0(gkey) : mups(round, g);
+    return pairs.every((_, mi) => g[nextRk][mi] !== null && g[nextRk][mi] !== undefined);
+  }
+
+  // Determine current active round (first incomplete one)
+  function getCurrentRound() {
+    // Check round 0 first (R8) for both groups
     for (let ri = 0; ri < 4; ri++) {
-      const pairs = mups(ri, g);
+      for (const gk of ['gA','gB']) {
+        if (!roundComplete(gk, ri)) return {gkey: gk, round: ri};
+      }
+    }
+    // Check championship
+    if (br.champ === null || br.champ === undefined) return {gkey: 'champ', round: -1};
+    return null; // all done
+  }
+
+  // Check if all picks complete
+  function allComplete() {
+    return ['gA','gB'].every(gk => [0,1,2,3].every(ri => roundComplete(gk, ri))) &&
+           br.champ !== null && br.champ !== undefined;
+  }
+
+  // ── COMPLETED BRACKET SUMMARY VIEW ──
+  if (allComplete() || (locked && mobileMatchupIdx === -1)) {
+    return renderMobileSummary(br, ar, locked);
+  }
+
+  const rNames = ['Round of 8','Quarterfinals','Semifinals','Group Final'];
+
+  // Build flat ordered matchup list: all R8 first (both groups), then QF, SF, GF, Champ
+  const allMatchups = [];
+  for (let ri = 0; ri < 4; ri++) {
+    for (const gk of ['gA','gB']) {
+      const g = br[gk];
+      const pairs = ri === 0 ? getOrderedR0(gk) : mups(ri, g);
       pairs.forEach((pair, mi) => {
+        const realMi = ri === 0 ? mi : mi; // mi is already correct
         const t0 = T(pair[0]), t1 = T(pair[1]);
         if (!t0?.name && !t1?.name) return;
-        allMatchups.push({gkey, round:ri, mi, roundName:rnames[ri]});
+        allMatchups.push({gkey: gk, round: ri, mi: realMi, roundName: rNames[ri], pair});
       });
     }
-  });
+  }
   // Championship
   const gAw = br.gA?.r3?.[0] ?? null;
   const gBw = br.gB?.r3?.[0] ?? null;
-  if (T(gAw)?.name || T(gBw)?.name) {
-    allMatchups.push({gkey:'champ', round:-1, mi:0, roundName:'Championship'});
-  }
+  allMatchups.push({gkey:'champ', round:-1, mi:0, roundName:'Championship', pair:[gAw, gBw]});
 
   const total = allMatchups.length;
-  const idx = Math.min(mobileMatchupIdx, total - 1);
+  const idx = Math.max(0, Math.min(mobileMatchupIdx, total - 1));
   const current = allMatchups[idx];
 
-  let html = '';
-  if (!pool.initialized) {
-    html += `<div class="alert alert-warn">The commissioner hasn't set up the teams yet. Check back soon!</div>`;
-    return html;
-  }
-  if (locked && (pool.settings.locked || dlPast())) {
-    html += `<div class="alert alert-info">Brackets are locked — your picks are saved!</div>`;
+  // Determine which matchups are locked (prior round incomplete)
+  function isMatchupLocked(m) {
+    if (locked) return true;
+    if (m.gkey === 'champ') {
+      // Champ unlocks when both group finals done
+      return !roundComplete('gA', 3) || !roundComplete('gB', 3);
+    }
+    if (m.round === 0) return false; // R8 always open
+    // Check previous round complete for this group
+    return !roundComplete(m.gkey, m.round - 1);
   }
 
-  html += `<div class="matchup-card-wrap" id="mcw">`;
-  html += `<div class="matchup-round-label">${current.roundName}</div>`;
+  let html = `<div class="matchup-card-wrap" id="mcw">`;
+
+  // Round header with progress within round
+  const roundMatchups = allMatchups.filter(m => m.gkey === current.gkey && m.round === current.round);
+  const roundIdx = roundMatchups.findIndex(m => m.mi === current.mi);
+  const roundLabel = current.gkey === 'champ' ? 'Championship' :
+    `${current.roundName} · ${current.gkey === 'gA' ? 'Group A' : 'Group B'}`;
+  html += `<div class="matchup-round-label">${roundLabel}</div>`;
   html += `<div class="matchup-progress">Match ${idx+1} of ${total}</div>`;
 
+  const matchupLocked = isMatchupLocked(current);
+
   if (current.gkey === 'champ') {
-    // Championship card
-    const ta = T(gAw), tb = T(gBw);
-    const isWinA = br.champ === gAw, isWinB = br.champ === gBw;
-    const aWin = ar.champ === gAw, bWin = ar.champ === gBw;
-    html += `<div class="champ-card">
-      <div class="champ-card-header">🏆 Pick the Champion</div>
-      <div class="champ-card-slots">`;
-    [gAw, gBw].forEach(tid => {
-      const t = T(tid);
-      const isWin = br.champ === tid;
-      const aW = ar.champ === tid;
-      const aL = ar.champ !== null && ar.champ !== undefined && ar.champ !== tid;
-      let cls = 'champ-slot';
-      if (isWin && aW) cls += ' selected correct';
-      else if (isWin && aL) cls += ' selected wrong';
-      else if (isWin) cls += ' selected';
-      if (locked) cls += ' locked';
-      const click = (!locked && t?.name) ? `onclick="window._pickChamp(${tid})"` : '';
-      html += `<div class="${cls}" ${click}>
-        ${t?.img ? `<img src="${t.img}" alt="${t.name}">` : `<div style="width:100%;aspect-ratio:3/4;background:var(--gold-light);display:flex;align-items:center;justify-content:center;font-size:1.5rem">${(t?.name||'?').slice(0,2).toUpperCase()}</div>`}
-        <div class="pick-name">${t?.name || 'TBD'}</div>
-      </div>`;
-    });
-    html += `</div></div>`;
+    // Championship
+    if (matchupLocked) {
+      html += `<div class="alert alert-info" style="text-align:center">Complete both group finals to unlock the Championship!</div>`;
+    } else {
+      html += `<div class="champ-card"><div class="champ-card-header">🏆 Pick the Overall Champion</div><div class="champ-card-slots">`;
+      [gAw, gBw].forEach(tid => {
+        const t = T(tid);
+        const isWin = br.champ === tid;
+        const aW = ar.champ === tid;
+        const aL = ar.champ !== null && ar.champ !== undefined && ar.champ !== tid;
+        let cls = 'champ-slot';
+        if (isWin && aW) cls += ' selected correct';
+        else if (isWin && aL) cls += ' selected wrong';
+        else if (isWin) cls += ' selected';
+        const click = (!locked && t?.name) ? `onclick="window._pickChamp(${tid})"` : '';
+        html += `<div class="${cls}" ${click}>
+          ${t?.img ? `<img src="${t.img}" alt="${t.name}">` : `<div style="width:100%;aspect-ratio:3/4;background:var(--gold-light);display:flex;align-items:center;justify-content:center;font-size:1.5rem">${(t?.name||'?').slice(0,2).toUpperCase()}</div>`}
+          <div class="pick-name">${t?.name || 'TBD'}</div>
+        </div>`;
+      });
+      html += `</div></div>`;
+    }
   } else {
-    // Regular matchup card
-    const {gkey, round, mi} = current;
-    const g = br[gkey] || defaultBracket()[gkey];
+    // Regular matchup
+    const {gkey, round, mi, pair} = current;
+    const g = br[gkey];
     const ag = ar[gkey] || {};
-    const pair = mups(round, g)[mi] || [null, null];
     const nextRk = round < 3 ? 'r'+(round+1) : null;
 
-    html += `<div class="matchup-card"><div class="matchup-vs">`;
-    pair.forEach((tid, pi) => {
-      const t = T(tid);
-      const isWin = nextRk ? g[nextRk]?.[mi] === tid : false;
-      const aNext = nextRk ? ag[nextRk] : null;
-      const aWin = aNext?.[mi] === tid;
-      const aLose = aNext && aNext[mi] !== null && aNext[mi] !== undefined && aNext[mi] !== tid;
-      let cls = 'matchup-pick' + (pi === 0 ? ' left' : ' right');
-      if (!t?.name) cls += ' locked';
-      else if (isWin && aWin) cls += ' selected correct';
-      else if (isWin && aLose) cls += ' selected wrong';
-      else if (isWin) cls += ' selected';
-      if (locked) cls += ' locked';
-      // On mobile, all rounds are pickable (round 0 picks advance into r1)
-      const canPick = !locked && t?.name;
-      const pickRound = round; // _pickGroup uses fromRound which maps to next round
-      const click = canPick ? `onclick="window._pickGroup('${gkey}',${round},${mi},${tid})"` : '';
-      html += `<div class="${cls}" ${click}>
-        ${t?.img ? `<img src="${t.img}" alt="${t?.name||''}">` : `<div class="pick-ph">${(t?.name||'?').slice(0,2).toUpperCase()}</div>`}
-        <div class="pick-name">${t?.name || 'TBD'}<span class="pick-seed">#${t?.seed||'—'}</span></div>
-      </div>`;
-      if (pi === 0) html += `<div class="vs-divider">VS</div>`;
-    });
-    html += `</div></div>`;
+    if (matchupLocked) {
+      html += `<div class="alert alert-info" style="text-align:center">Complete the previous round first!</div>`;
+      // Show the matchup greyed out
+      html += `<div class="matchup-card"><div class="matchup-vs">`;
+      pair.forEach((tid, pi) => {
+        const t = T(tid);
+        html += `<div class="matchup-pick${pi===0?' left':' right'} locked">
+          ${t?.img ? `<img src="${t.img}" alt="${t?.name||''}">` : `<div class="pick-ph">${(t?.name||'?').slice(0,2).toUpperCase()}</div>`}
+          <div class="pick-name">${t?.name || 'TBD'}<span class="pick-seed">#${t?.seed||'—'}</span></div>
+        </div>`;
+        if (pi === 0) html += `<div class="vs-divider">VS</div>`;
+      });
+      html += `</div></div>`;
+    } else {
+      html += `<div class="matchup-card"><div class="matchup-vs">`;
+      pair.forEach((tid, pi) => {
+        const t = T(tid);
+        const isWin = nextRk ? g[nextRk]?.[mi] === tid : false;
+        const aNext = nextRk ? ag[nextRk] : null;
+        const aWin = aNext?.[mi] === tid;
+        const aLose = aNext && aNext[mi] !== null && aNext[mi] !== undefined && aNext[mi] !== tid;
+        let cls = 'matchup-pick' + (pi === 0 ? ' left' : ' right');
+        if (!t?.name) cls += ' locked';
+        else if (isWin && aWin) cls += ' selected correct';
+        else if (isWin && aLose) cls += ' selected wrong';
+        else if (isWin) cls += ' selected';
+        if (locked) cls += ' locked';
+        const canPick = !locked && t?.name;
+        const click = canPick ? `onclick="window._pickGroup('${gkey}',${round},${mi},${tid})"` : '';
+        html += `<div class="${cls}" ${click}>
+          ${t?.img ? `<img src="${t.img}" alt="${t?.name||''}">` : `<div class="pick-ph">${(t?.name||'?').slice(0,2).toUpperCase()}</div>`}
+          <div class="pick-name">${t?.name || 'TBD'}<span class="pick-seed">#${t?.seed||'—'}</span></div>
+        </div>`;
+        if (pi === 0) html += `<div class="vs-divider">VS</div>`;
+      });
+      html += `</div></div>`;
+    }
   }
 
-  // Navigation dots + arrows
+  // Nav dots + arrows
   const hasPrev = idx > 0;
   const hasNext = idx < total - 1;
   html += `<div class="matchup-nav">
     <div class="matchup-nav-btn${hasPrev?'':' disabled'}" onclick="window._mobileNav(${idx-1})">←</div>
     <div class="matchup-dots">`;
-  allMatchups.forEach((_, i) => {
-    const m = allMatchups[i];
+  allMatchups.forEach((m, i) => {
     let picked = false;
     if (m.gkey === 'champ') {
       picked = br.champ !== null && br.champ !== undefined;
     } else {
-      const g = br[m.gkey] || defaultBracket()[m.gkey];
+      const g = br[m.gkey];
       const nextRk = m.round < 3 ? 'r'+(m.round+1) : null;
-      if (nextRk) picked = g[nextRk]?.[m.mi] !== null && g[nextRk]?.[m.mi] !== undefined;
+      picked = nextRk ? (g[nextRk]?.[m.mi] !== null && g[nextRk]?.[m.mi] !== undefined) : false;
     }
-    let dotCls = 'matchup-dot' + (i === idx ? ' active' : '') + (picked && i !== idx ? ' picked' : '');
+    const mLocked = isMatchupLocked(m);
+    let dotCls = 'matchup-dot';
+    if (i === idx) dotCls += ' active';
+    else if (picked) dotCls += ' picked';
+    else if (mLocked) dotCls += ' locked-dot';
     html += `<div class="${dotCls}" onclick="window._mobileNav(${i})"></div>`;
   });
+
+  // View bracket button once all done
+  const done = allComplete();
   html += `</div>
     <div class="matchup-nav-btn${hasNext?'':' disabled'}" onclick="window._mobileNav(${idx+1})">→</div>
   </div>`;
 
-  html += `</div>`; // matchup-card-wrap
+  if (done) {
+    html += `<button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.75rem" onclick="window._mobileNav(-1)">View My Bracket →</button>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+function renderMobileSummary(br, ar, locked) {
+  const rNames = ['Round of 8','Quarterfinals','Semifinals','Group Final'];
+  let html = `<div style="padding:.5rem 0">`;
+
+  if (locked && (pool.settings.locked || dlPast())) {
+    html += `<div class="alert alert-info">Brackets are locked — your picks are saved!</div>`;
+  } else {
+    html += `<div class="alert alert-hint">All picks submitted! 🎉</div>`;
+  }
+
+  html += `<button class="btn btn-secondary" style="width:100%;justify-content:center;margin-bottom:1rem" onclick="window._mobileNav(0)">← Edit Picks</button>`;
+
+  // Summary by group
+  ['gA','gB'].forEach(gk => {
+    const g = br[gk];
+    const ag = ar[gk] || {};
+    const label = gk === 'gA' ? 'Group A' : 'Group B';
+    html += `<div style="margin-bottom:1.25rem">
+      <div style="font-size:.8rem;font-weight:500;color:var(--gold-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.5rem">${label}</div>`;
+
+    for (let ri = 0; ri < 4; ri++) {
+      const pairs = ri === 0
+        ? [[0,7],[1,6],[2,5],[3,4]].map(([a,b]) => [gk==='gA'?a:a+8, gk==='gA'?b:b+8])
+        : mups(ri, g);
+      html += `<div style="font-size:.72rem;color:var(--muted);margin:.5rem 0 .25rem;font-weight:500">${rNames[ri]}</div>`;
+      pairs.forEach((pair, mi) => {
+        const nextRk = ri < 3 ? 'r'+(ri+1) : null;
+        const winner = nextRk ? g[nextRk]?.[mi] : g.r3?.[0];
+        const wt = T(winner);
+        const actual = nextRk ? ag[nextRk]?.[mi] : ag.r3?.[0];
+        const isCorrect = winner !== null && winner !== undefined && actual === winner;
+        const isWrong = winner !== null && winner !== undefined && actual !== null && actual !== undefined && actual !== winner;
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:4px;${isCorrect?'border-color:#66BB6A;background:#E8F5E9':isWrong?'border-color:var(--coral);background:var(--coral-light)':''}">
+          ${wt?.img ? `<img src="${wt.img}" style="width:28px;height:28px;border-radius:4px;object-fit:contain;background:var(--cream)">` : `<div style="width:28px;height:28px;border-radius:4px;background:var(--gold-light);display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:500;color:var(--gold-dark)">${wt?.name?wt.name.slice(0,3):'?'}</div>`}
+          <span style="flex:1;font-size:.82rem;font-weight:500">${wt?.name || '—'}</span>
+          <span style="font-size:.7rem;color:var(--muted)">${T(pair[0])?.name||'?'} vs ${T(pair[1])?.name||'?'}</span>
+          ${isCorrect ? '<span style="color:#2E7D32;font-size:.8rem">✓</span>' : isWrong ? '<span style="color:var(--coral);font-size:.8rem">✗</span>' : ''}
+        </div>`;
+      });
+    }
+    html += `</div>`;
+  });
+
+  // Championship
+  const ct = T(br.champ);
+  const champCorrect = br.champ !== null && ar.champ === br.champ;
+  const champWrong = br.champ !== null && ar.champ !== null && ar.champ !== undefined && ar.champ !== br.champ;
+  html += `<div style="margin-bottom:1rem">
+    <div style="font-size:.8rem;font-weight:500;color:var(--gold-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.5rem">🏆 Champion</div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--gold-light);border:2px solid var(--gold);border-radius:10px;${champCorrect?'border-color:#66BB6A;background:#E8F5E9':champWrong?'border-color:var(--coral);background:var(--coral-light)':''}">
+      ${ct?.img ? `<img src="${ct.img}" style="width:40px;height:40px;border-radius:6px;object-fit:contain;background:var(--cream)">` : `<div style="width:40px;height:40px;border-radius:6px;background:var(--white);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:500;color:var(--gold-dark)">${ct?.name?ct.name.slice(0,3):'?'}</div>`}
+      <span style="font-size:.95rem;font-weight:500;color:var(--gold-dark)">${ct?.name || '—'}</span>
+      ${champCorrect ? '<span style="margin-left:auto;color:#2E7D32;font-size:1rem">✓</span>' : champWrong ? '<span style="margin-left:auto;color:var(--coral);font-size:1rem">✗</span>' : ''}
+    </div>
+  </div>`;
+
+  html += `</div>`;
   return html;
 }
 
@@ -1127,8 +1265,8 @@ window._pickGroup = (gkey, fromRound, mi, tid) => {
   const nr = 'r'+(fromRound+1);
   g[nr][mi] = tid;
   clearDown(g, fromRound+1, mi, tid);
-  // On mobile, auto-advance to next matchup after picking
   if (isMobile()) {
+    // Advance to next matchup
     mobileMatchupIdx++;
     render();
     const el = document.getElementById('mcw');
@@ -1150,7 +1288,7 @@ function clearDown(g, round, slot, wid) {
 }
 
 window._mobileNav = (idx) => {
-  mobileMatchupIdx = Math.max(0, Math.floor(idx));
+  mobileMatchupIdx = Math.floor(idx); // allow -1 for summary view
   render();
   const el = document.getElementById('mcw');
   if (el) window._mobileSwipe(el);
