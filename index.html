@@ -1067,6 +1067,8 @@ document.addEventListener('touchend', e => {
   if (dx < 0) window._mobileNav(mobileMatchupIdx + 1);
   else window._mobileNav(mobileMatchupIdx - 1);
 }, {passive:true});
+
+window._pickChamp = (tid) => {
   if (!editable()) return;
   myBracket.champ = tid;
   render();
