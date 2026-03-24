@@ -705,18 +705,21 @@ function renderMobileBracket(br, edit) {
     return `<div class="alert alert-warn">The commissioner hasn't set up the teams yet. Check back soon!</div>`;
   }
 
-  // ── Seeding order: 1v8, 2v7, 3v6, 4v5 within each group ──
-  // Group A: teams 0-7 (seeds 1-8), Group B: teams 8-15 (seeds 1-8)
-  // Standard bracket seeding pairs by index within group: [0,7],[1,6],[2,5],[3,4]
+  // Round structure per group:
+  // ri=0: r0(8 teams) -> picks to r1 [4 matchups]
+  // ri=1: r1(4 teams) -> picks to r2 [2 matchups = QF]
+  // ri=2: r2(2 teams) -> picks to r3 [1 matchup = SF/Group Final]
+  // r3[0] = group winner (not a matchup, just a slot)
+  // Championship: gA.r3[0] vs gB.r3[0]
+
+  const rNames = ['Round of 8', 'Quarterfinals', 'Semifinals'];
   const seedPairs = [[0,7],[1,6],[2,5],[3,4]];
 
-  // Build ordered r0 for each group based on seeding
   function getOrderedR0(gkey) {
     const base = gkey === 'gA' ? 0 : 8;
     return seedPairs.map(([a,b]) => [base+a, base+b]);
   }
 
-  // Check if all matchups in a round are picked
   function roundComplete(gkey, round) {
     const g = br[gkey];
     const nextRk = 'r'+(round+1);
@@ -725,47 +728,33 @@ function renderMobileBracket(br, edit) {
     return pairs.every((_, mi) => g[nextRk][mi] !== null && g[nextRk][mi] !== undefined);
   }
 
-  // Determine current active round (first incomplete one)
-  function getCurrentRound() {
-    // Check round 0 first (R8) for both groups
-    for (let ri = 0; ri < 4; ri++) {
-      for (const gk of ['gA','gB']) {
-        if (!roundComplete(gk, ri)) return {gkey: gk, round: ri};
-      }
-    }
-    // Check championship
-    if (br.champ === null || br.champ === undefined) return {gkey: 'champ', round: -1};
-    return null; // all done
+  function allGroupRoundsComplete(gkey) {
+    return [0,1,2].every(ri => roundComplete(gkey, ri));
   }
 
-  // Check if all picks complete
   function allComplete() {
-    return ['gA','gB'].every(gk => [0,1,2,3].every(ri => roundComplete(gk, ri))) &&
+    return allGroupRoundsComplete('gA') && allGroupRoundsComplete('gB') &&
            br.champ !== null && br.champ !== undefined;
   }
 
-  // ── COMPLETED BRACKET SUMMARY VIEW ──
-  if (allComplete() || (locked && mobileMatchupIdx === -1)) {
+  if (allComplete() || mobileMatchupIdx === -1) {
     return renderMobileSummary(br, ar, locked);
   }
 
-  const rNames = ['Round of 8','Quarterfinals','Semifinals','Group Final'];
-
-  // Build flat ordered matchup list: all R8 first (both groups), then QF, SF, GF, Champ
+  // Build flat ordered matchup list: ri=0..2 only (not ri=3 which is just a slot)
   const allMatchups = [];
-  for (let ri = 0; ri < 4; ri++) {
+  for (let ri = 0; ri < 3; ri++) {
     for (const gk of ['gA','gB']) {
       const g = br[gk];
       const pairs = ri === 0 ? getOrderedR0(gk) : mups(ri, g);
       pairs.forEach((pair, mi) => {
-        const realMi = ri === 0 ? mi : mi; // mi is already correct
         const t0 = T(pair[0]), t1 = T(pair[1]);
         if (!t0?.name && !t1?.name) return;
-        allMatchups.push({gkey: gk, round: ri, mi: realMi, roundName: rNames[ri], pair});
+        allMatchups.push({gkey: gk, round: ri, mi, roundName: rNames[ri], pair});
       });
     }
   }
-  // Championship
+  // Championship: group winners face off
   const gAw = br.gA?.r3?.[0] ?? null;
   const gBw = br.gB?.r3?.[0] ?? null;
   allMatchups.push({gkey:'champ', round:-1, mi:0, roundName:'Championship', pair:[gAw, gBw]});
@@ -774,23 +763,38 @@ function renderMobileBracket(br, edit) {
   const idx = Math.max(0, Math.min(mobileMatchupIdx, total - 1));
   const current = allMatchups[idx];
 
-  // Determine which matchups are locked (prior round incomplete)
+  // Determine which rounds are unlocked
   function isMatchupLocked(m) {
     if (locked) return true;
     if (m.gkey === 'champ') {
-      // Champ unlocks when both group finals done
-      return !roundComplete('gA', 3) || !roundComplete('gB', 3);
+      return !allGroupRoundsComplete('gA') || !allGroupRoundsComplete('gB');
     }
-    if (m.round === 0) return false; // R8 always open
-    // Check previous round complete for this group
+    if (m.round === 0) return false;
     return !roundComplete(m.gkey, m.round - 1);
   }
 
+  // Detect round transitions for banner
+  const prevMatchup = idx > 0 ? allMatchups[idx - 1] : null;
+  const roundChanged = prevMatchup && (
+    prevMatchup.round !== current.round || prevMatchup.gkey !== current.gkey
+  );
+  const isNewRound = roundChanged && idx > 0;
+
   let html = `<div class="matchup-card-wrap" id="mcw">`;
 
-  // Round header with progress within round
-  const roundMatchups = allMatchups.filter(m => m.gkey === current.gkey && m.round === current.round);
-  const roundIdx = roundMatchups.findIndex(m => m.mi === current.mi);
+  // Round transition banner
+  if (isNewRound) {
+    const prevLabel = prevMatchup.gkey === 'champ' ? 'Championship' :
+      `${rNames[prevMatchup.round]} · ${prevMatchup.gkey === 'gA' ? 'Group A' : 'Group B'}`;
+    const newLabel = current.gkey === 'champ' ? 'Championship' :
+      `${current.roundName} · ${current.gkey === 'gA' ? 'Group A' : 'Group B'}`;
+    html += `<div style="background:var(--gold-light);border:1px solid var(--gold);border-radius:10px;padding:10px 14px;margin-bottom:.75rem;text-align:center">
+      <div style="font-size:.7rem;color:var(--muted);margin-bottom:2px">${prevLabel} complete ✓</div>
+      <div style="font-size:.9rem;font-weight:500;color:var(--gold-dark)">Now: ${newLabel}</div>
+    </div>`;
+  }
+
+  // Round label + progress
   const roundLabel = current.gkey === 'champ' ? 'Championship' :
     `${current.roundName} · ${current.gkey === 'gA' ? 'Group A' : 'Group B'}`;
   html += `<div class="matchup-round-label">${roundLabel}</div>`;
@@ -799,9 +803,13 @@ function renderMobileBracket(br, edit) {
   const matchupLocked = isMatchupLocked(current);
 
   if (current.gkey === 'champ') {
-    // Championship
     if (matchupLocked) {
-      html += `<div class="alert alert-info" style="text-align:center">Complete both group finals to unlock the Championship!</div>`;
+      html += `<div class="alert alert-info" style="text-align:center">Complete both group semifinals to unlock the Championship!</div>`;
+      html += `<div class="champ-card"><div class="champ-card-header">🏆 Championship — coming soon</div>
+        <div class="champ-card-slots">
+          <div class="champ-slot locked"><div style="width:100%;aspect-ratio:3/4;background:var(--cream);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.8rem">Group A winner</div><div class="pick-name">TBD</div></div>
+          <div class="champ-slot locked"><div style="width:100%;aspect-ratio:3/4;background:var(--cream);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.8rem">Group B winner</div><div class="pick-name">TBD</div></div>
+        </div></div>`;
     } else {
       html += `<div class="champ-card"><div class="champ-card-header">🏆 Pick the Overall Champion</div><div class="champ-card-slots">`;
       [gAw, gBw].forEach(tid => {
@@ -822,52 +830,40 @@ function renderMobileBracket(br, edit) {
       html += `</div></div>`;
     }
   } else {
-    // Regular matchup
     const {gkey, round, mi, pair} = current;
     const g = br[gkey];
     const ag = ar[gkey] || {};
-    const nextRk = round < 3 ? 'r'+(round+1) : null;
+    const nextRk = 'r'+(round+1);
+
+    html += `<div class="matchup-card"><div class="matchup-vs">`;
+    pair.forEach((tid, pi) => {
+      const t = T(tid);
+      const isWin = g[nextRk]?.[mi] === tid;
+      const aNext = ag[nextRk];
+      const aWin = aNext?.[mi] === tid;
+      const aLose = aNext && aNext[mi] !== null && aNext[mi] !== undefined && aNext[mi] !== tid;
+      let cls = 'matchup-pick' + (pi === 0 ? ' left' : ' right');
+      if (!t?.name) cls += ' locked';
+      else if (isWin && aWin) cls += ' selected correct';
+      else if (isWin && aLose) cls += ' selected wrong';
+      else if (isWin) cls += ' selected';
+      if (locked || matchupLocked) cls += ' locked';
+      const canPick = !locked && !matchupLocked && t?.name;
+      const click = canPick ? `onclick="window._pickGroup('${gkey}',${round},${mi},${tid})"` : '';
+      html += `<div class="${cls}" ${click}>
+        ${t?.img ? `<img src="${t.img}" alt="${t?.name||''}">` : `<div class="pick-ph">${(t?.name||'?').slice(0,2).toUpperCase()}</div>`}
+        <div class="pick-name">${t?.name || 'TBD'}<span class="pick-seed">#${t?.seed||'—'}</span></div>
+      </div>`;
+      if (pi === 0) html += `<div class="vs-divider">VS</div>`;
+    });
+    html += `</div></div>`;
 
     if (matchupLocked) {
-      html += `<div class="alert alert-info" style="text-align:center">Complete the previous round first!</div>`;
-      // Show the matchup greyed out
-      html += `<div class="matchup-card"><div class="matchup-vs">`;
-      pair.forEach((tid, pi) => {
-        const t = T(tid);
-        html += `<div class="matchup-pick${pi===0?' left':' right'} locked">
-          ${t?.img ? `<img src="${t.img}" alt="${t?.name||''}">` : `<div class="pick-ph">${(t?.name||'?').slice(0,2).toUpperCase()}</div>`}
-          <div class="pick-name">${t?.name || 'TBD'}<span class="pick-seed">#${t?.seed||'—'}</span></div>
-        </div>`;
-        if (pi === 0) html += `<div class="vs-divider">VS</div>`;
-      });
-      html += `</div></div>`;
-    } else {
-      html += `<div class="matchup-card"><div class="matchup-vs">`;
-      pair.forEach((tid, pi) => {
-        const t = T(tid);
-        const isWin = nextRk ? g[nextRk]?.[mi] === tid : false;
-        const aNext = nextRk ? ag[nextRk] : null;
-        const aWin = aNext?.[mi] === tid;
-        const aLose = aNext && aNext[mi] !== null && aNext[mi] !== undefined && aNext[mi] !== tid;
-        let cls = 'matchup-pick' + (pi === 0 ? ' left' : ' right');
-        if (!t?.name) cls += ' locked';
-        else if (isWin && aWin) cls += ' selected correct';
-        else if (isWin && aLose) cls += ' selected wrong';
-        else if (isWin) cls += ' selected';
-        if (locked) cls += ' locked';
-        const canPick = !locked && t?.name;
-        const click = canPick ? `onclick="window._pickGroup('${gkey}',${round},${mi},${tid})"` : '';
-        html += `<div class="${cls}" ${click}>
-          ${t?.img ? `<img src="${t.img}" alt="${t?.name||''}">` : `<div class="pick-ph">${(t?.name||'?').slice(0,2).toUpperCase()}</div>`}
-          <div class="pick-name">${t?.name || 'TBD'}<span class="pick-seed">#${t?.seed||'—'}</span></div>
-        </div>`;
-        if (pi === 0) html += `<div class="vs-divider">VS</div>`;
-      });
-      html += `</div></div>`;
+      html += `<div class="alert alert-info" style="text-align:center;margin-top:.5rem">Complete the previous round to unlock!</div>`;
     }
   }
 
-  // Nav dots + arrows
+  // Nav
   const hasPrev = idx > 0;
   const hasNext = idx < total - 1;
   html += `<div class="matchup-nav">
@@ -879,8 +875,8 @@ function renderMobileBracket(br, edit) {
       picked = br.champ !== null && br.champ !== undefined;
     } else {
       const g = br[m.gkey];
-      const nextRk = m.round < 3 ? 'r'+(m.round+1) : null;
-      picked = nextRk ? (g[nextRk]?.[m.mi] !== null && g[nextRk]?.[m.mi] !== undefined) : false;
+      const nextRk = 'r'+(m.round+1);
+      picked = g[nextRk]?.[m.mi] !== null && g[nextRk]?.[m.mi] !== undefined;
     }
     const mLocked = isMatchupLocked(m);
     let dotCls = 'matchup-dot';
@@ -889,15 +885,12 @@ function renderMobileBracket(br, edit) {
     else if (mLocked) dotCls += ' locked-dot';
     html += `<div class="${dotCls}" onclick="window._mobileNav(${i})"></div>`;
   });
-
-  // View bracket button once all done
-  const done = allComplete();
   html += `</div>
     <div class="matchup-nav-btn${hasNext?'':' disabled'}" onclick="window._mobileNav(${idx+1})">→</div>
   </div>`;
 
-  if (done) {
-    html += `<button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.75rem" onclick="window._mobileNav(-1)">View My Bracket →</button>`;
+  if (allComplete()) {
+    html += `<button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.75rem" onclick="window._mobileNav(-1)">View My Completed Bracket →</button>`;
   }
 
   html += `</div>`;
@@ -905,7 +898,7 @@ function renderMobileBracket(br, edit) {
 }
 
 function renderMobileSummary(br, ar, locked) {
-  const rNames = ['Round of 8','Quarterfinals','Semifinals','Group Final'];
+  const rNames = ['Round of 8', 'Quarterfinals', 'Semifinals'];
   let html = `<div style="padding:.5rem 0">`;
 
   if (locked && (pool.settings.locked || dlPast())) {
@@ -916,7 +909,6 @@ function renderMobileSummary(br, ar, locked) {
 
   html += `<button class="btn btn-secondary" style="width:100%;justify-content:center;margin-bottom:1rem" onclick="window._mobileNav(0)">← Edit Picks</button>`;
 
-  // Summary by group
   ['gA','gB'].forEach(gk => {
     const g = br[gk];
     const ag = ar[gk] || {};
@@ -924,16 +916,16 @@ function renderMobileSummary(br, ar, locked) {
     html += `<div style="margin-bottom:1.25rem">
       <div style="font-size:.8rem;font-weight:500;color:var(--gold-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.5rem">${label}</div>`;
 
-    for (let ri = 0; ri < 4; ri++) {
+    for (let ri = 0; ri < 3; ri++) {
       const pairs = ri === 0
         ? [[0,7],[1,6],[2,5],[3,4]].map(([a,b]) => [gk==='gA'?a:a+8, gk==='gA'?b:b+8])
         : mups(ri, g);
       html += `<div style="font-size:.72rem;color:var(--muted);margin:.5rem 0 .25rem;font-weight:500">${rNames[ri]}</div>`;
       pairs.forEach((pair, mi) => {
-        const nextRk = ri < 3 ? 'r'+(ri+1) : null;
-        const winner = nextRk ? g[nextRk]?.[mi] : g.r3?.[0];
+        const nextRk = 'r'+(ri+1);
+        const winner = g[nextRk]?.[mi];
         const wt = T(winner);
-        const actual = nextRk ? ag[nextRk]?.[mi] : ag.r3?.[0];
+        const actual = ag[nextRk]?.[mi];
         const isCorrect = winner !== null && winner !== undefined && actual === winner;
         const isWrong = winner !== null && winner !== undefined && actual !== null && actual !== undefined && actual !== winner;
         html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:4px;${isCorrect?'border-color:#66BB6A;background:#E8F5E9':isWrong?'border-color:var(--coral);background:var(--coral-light)':''}">
@@ -947,7 +939,6 @@ function renderMobileSummary(br, ar, locked) {
     html += `</div>`;
   });
 
-  // Championship
   const ct = T(br.champ);
   const champCorrect = br.champ !== null && ar.champ === br.champ;
   const champWrong = br.champ !== null && ar.champ !== null && ar.champ !== undefined && ar.champ !== br.champ;
@@ -1426,6 +1417,7 @@ window._viewOne = async (name) => {
 window._rmv = async (n) => {
   if (!confirm('Remove ' + n + '?')) return;
   showToast('Removing...');
+  isSaving = true; // block listener from overwriting pool during delete
   try {
     if (!pool.participants) pool.participants = [];
     pool.participants = pool.participants.filter(p => p !== n);
@@ -1433,10 +1425,11 @@ window._rmv = async (n) => {
     await withTimeout(savePool());
     await withTimeout(dbRemove('brackets/' + sanitizeKey(n)));
     showToast(n + ' removed');
-    render();
   } catch(e) {
     console.error('rmv error:', e);
     showToast('Remove failed — try again');
+  } finally {
+    isSaving = false;
     render();
   }
 };
