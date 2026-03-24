@@ -823,6 +823,7 @@ window._playerLogin = async () => {
   const existing = await dbGet('pool');
   pool = existing || defaultPool();
   user = n; isComm = false;
+  if (!pool.participants) pool.participants = [];
   if (!pool.participants.includes(n)) {
     pool.participants.push(n);
     await savePool();
