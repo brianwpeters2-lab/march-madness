@@ -1099,7 +1099,7 @@ function renderViewList() {
   const order = sorted.length ? sorted.map(s=>s.name) : pool.participants;
   order.forEach((name,i) => {
     const sc = lbScores.find(s => s.name===name);
-    h += `<div class="view-bracket-row" onclick="window._viewOne('${name}')">
+    h += `<div class="view-bracket-row" onclick="window._viewOne(this.dataset.name)" data-name="${name.replace(/'/g, '&#39;')}">
       <div style="display:flex;align-items:center;gap:9px">
         <span style="color:var(--muted);font-size:.85rem">${i+1}.</span>
         <span style="font-weight:500">${name}</span>
@@ -1147,7 +1147,7 @@ function renderSettings() {
       ? pool.participants.map(p => `
         <div class="participant-row">
           <span>${p}</span>
-          <button class="btn btn-danger btn-xs" onclick="window._rmv('${p}')">Remove</button>
+          <button class="btn btn-danger btn-xs" onclick="window._rmv(this.dataset.name)" data-name="${p.replace(/'/g, "&#39;")}">Remove</button>
         </div>`).join('')
       : '<div class="empty-state" style="padding:1rem">No players yet.</div>'
     }
