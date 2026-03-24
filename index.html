@@ -424,6 +424,27 @@ function defaultBracket() {
   };
 }
 
+// Merge a bracket from Firebase with defaults — heals old/missing fields
+function safeBracket(br) {
+  if (!br) return defaultBracket();
+  const def = defaultBracket();
+  return {
+    gA: {
+      r0: br.gA?.r0 || def.gA.r0,
+      r1: br.gA?.r1 || def.gA.r1,
+      r2: br.gA?.r2 || def.gA.r2,
+      r3: br.gA?.r3 || def.gA.r3,
+    },
+    gB: {
+      r0: br.gB?.r0 || def.gB.r0,
+      r1: br.gB?.r1 || def.gB.r1,
+      r2: br.gB?.r2 || def.gB.r2,
+      r3: br.gB?.r3 || def.gB.r3,
+    },
+    champ: br.champ ?? null
+  };
+}
+
 // ── Sync helpers ──
 function setSyncStatus(s) {
   syncStatus = s;
@@ -634,7 +655,7 @@ function renderBracket(br, edit) {
     });
     html += `</div></div>`;
 
-    const gWinner = g.r3 ? g.r3[0] : null;
+    const gWinner = g.r3?.[0] ?? null;
     const gt = T(gWinner);
     html += `<div class="r-col" style="flex:1.5;min-width:120px;border-right:none">
       <div class="r-header">Group Winner</div>
@@ -653,8 +674,8 @@ function renderBracket(br, edit) {
     html += `</div></div>`;
   });
 
-  const gAw = br.gA ? br.gA.r3[0] : null;
-  const gBw = br.gB ? br.gB.r3[0] : null;
+  const gAw = br.gA?.r3?.[0] ?? null;
+  const gBw = br.gB?.r3?.[0] ?? null;
   const ct = T(br.champ);
   html += `<div class="finals-row">
     <div class="final-half">${fSlot(gAw, br, ar, locked)}</div>
@@ -696,8 +717,8 @@ function renderMobileBracket(br, edit) {
     }
   });
   // Championship
-  const gAw = br.gA ? br.gA.r3[0] : null;
-  const gBw = br.gB ? br.gB.r3[0] : null;
+  const gAw = br.gA?.r3?.[0] ?? null;
+  const gBw = br.gB?.r3?.[0] ?? null;
   if (T(gAw)?.name || T(gBw)?.name) {
     allMatchups.push({gkey:'champ', round:-1, mi:0, roundName:'Championship'});
   }
@@ -927,8 +948,8 @@ function renderResults() {
   });
 
   const arGA = ar.gA||{}, arGB = ar.gB||{};
-  const gAw = arGA.r3 ? arGA.r3[0] : null;
-  const gBw = arGB.r3 ? arGB.r3[0] : null;
+  const gAw = arGA.r3?.[0] ?? null;
+  const gBw = arGB.r3?.[0] ?? null;
   const ta = T(gAw), tb = T(gBw);
   h += `<div>
     <div style="font-size:1rem;font-family:'Playfair Display',serif;margin-bottom:.5rem;color:var(--gold-dark)">🏆 Championship</div>
@@ -1030,7 +1051,7 @@ window._playerLogin = async () => {
     }
     const key = sanitizeKey(n);
     const br = await withTimeout(dbGet('brackets/' + key), 8000);
-    myBracket = br || defaultBracket();
+    myBracket = safeBracket(br);
     if (!br) await withTimeout(dbSet('brackets/' + key, myBracket), 8000);
 
     if (poolUnsubscribe) poolUnsubscribe();
@@ -1256,7 +1277,7 @@ window._togSetting = async (k) => {
 window._viewOne = async (name) => {
   viewUser = name; viewBracket = null; tab = 'viewone'; render();
   try {
-    viewBracket = await withTimeout(dbGet('brackets/' + sanitizeKey(name))) || defaultBracket();
+    viewBracket = safeBracket(await withTimeout(dbGet('brackets/' + sanitizeKey(name))));
   } catch(e) {
     console.error('viewOne error:', e);
     viewBracket = defaultBracket();
@@ -1287,7 +1308,7 @@ async function refreshLBScores() {
   const results = await Promise.all(
     pool.participants.map(async p => {
       const br = await dbGet('brackets/' + sanitizeKey(p));
-      return { name: p, score: calcScore(br || defaultBracket()) };
+      return { name: p, score: calcScore(safeBracket(br)) };
     })
   );
   lbScores = results;
