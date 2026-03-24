@@ -289,10 +289,15 @@ code{background:var(--gold-light);padding:1px 5px;border-radius:4px;font-size:.8
 .champ-slot.selected{border-color:var(--gold);background:var(--gold-light)}
 .champ-slot.selected .pick-name{color:var(--gold-dark)}
 .champ-slot:active{opacity:.85}
+
+/* Toast notification */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:var(--white);padding:10px 20px;border-radius:20px;font-size:.85rem;font-weight:500;z-index:999;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
 <div id="app"></div>
+<div id="toast" class="toast"></div>
 
 <!-- Commissioner modal -->
 <div id="comm-modal" class="modal-bg hidden">
@@ -365,6 +370,15 @@ let saveTimer = null;
 let poolUnsubscribe = null;
 let isSaving = false;
 let mobileMatchupIdx = 0; // current matchup index in mobile card view
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
 
 const SC = [1, 2, 4, 8];
 
@@ -675,7 +689,7 @@ function renderMobileBracket(br, edit) {
     html += `<div class="alert alert-info">Brackets are locked — your picks are saved!</div>`;
   }
 
-  html += `<div class="matchup-card-wrap">`;
+  html += `<div class="matchup-card-wrap" id="mcw">`;
   html += `<div class="matchup-round-label">${current.roundName}</div>`;
   html += `<div class="matchup-progress">Match ${idx+1} of ${total}</div>`;
 
@@ -974,49 +988,78 @@ window._playerLogin = async () => {
   const n = document.getElementById('ln').value.trim();
   if (!n) { document.getElementById('lerr').textContent='Please enter your name.'; return; }
   showLoading('Joining the pool...');
-  const existing = await dbGet('pool');
-  pool = existing || defaultPool();
-  user = n; isComm = false;
-  if (!pool.participants) pool.participants = [];
-  if (!pool.participants.includes(n)) {
-    pool.participants.push(n);
-    await savePool();
+
+  // Timeout wrapper — if Firebase takes >10s, show an error instead of spinning forever
+  const withTimeout = (promise, ms, msg) => Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms))
+  ]);
+
+  try {
+    const existing = await withTimeout(dbGet('pool'), 10000, 'timeout');
+    pool = existing || defaultPool();
+    user = n; isComm = false;
+    if (!pool.participants) pool.participants = [];
+    if (!pool.participants.includes(n)) {
+      pool.participants.push(n);
+      await withTimeout(savePool(), 8000, 'timeout');
+    }
+    const key = sanitizeKey(n);
+    const br = await withTimeout(dbGet('brackets/' + key), 8000, 'timeout');
+    myBracket = br || defaultBracket();
+    if (!br) await dbSet('brackets/' + key, myBracket);
+
+    if (poolUnsubscribe) poolUnsubscribe();
+    poolUnsubscribe = dbListen('pool', data => {
+      if (!data || isSaving) return;
+      pool = data;
+      if (user && tab !== 'bracket') render();
+    });
+
+    tab = 'bracket'; render();
+    const el = document.getElementById('mcw');
+    if (el) window._mobileSwipe(el);
+
+  } catch(err) {
+    // Show friendly error instead of infinite spinner
+    user = null; pool = null;
+    document.getElementById('app').innerHTML = renderLogin();
+    attachLogin();
+    document.getElementById('lerr').textContent =
+      err.message === 'timeout'
+        ? 'Connection timed out. Check your internet and try again.'
+        : 'Something went wrong. Please try again.';
   }
-  const key = sanitizeKey(n);
-  const br = await dbGet('brackets/' + key);
-  myBracket = br || defaultBracket();
-  if (!br) await dbSet('brackets/' + key, myBracket);
-
-  // Listen for pool changes — skip re-render if user is mid-pick or saving
-  if (poolUnsubscribe) poolUnsubscribe();
-  poolUnsubscribe = dbListen('pool', data => {
-    if (!data || isSaving) return;
-    pool = data;
-    if (user && tab !== 'bracket') render();
-  });
-
-  tab = 'bracket'; render();
 };
 
 window._doCommLogin = async () => {
   const p = document.getElementById('comm-pass').value;
-  const existing = await dbGet('pool');
-  pool = existing || defaultPool();
-  if (p !== pool.settings.commPass) {
-    document.getElementById('comm-error').textContent = 'Wrong password.'; return;
+  const withTimeout = (promise, ms) => Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+  ]);
+  try {
+    const existing = await withTimeout(dbGet('pool'), 10000);
+    pool = existing || defaultPool();
+    if (p !== pool.settings.commPass) {
+      document.getElementById('comm-error').textContent = 'Wrong password.'; return;
+    }
+    window.closeComm();
+    showLoading('Loading commissioner view...');
+    user = 'Commissioner'; isComm = true;
+    if (poolUnsubscribe) poolUnsubscribe();
+    poolUnsubscribe = dbListen('pool', data => {
+      if (!data || isSaving) return;
+      pool = data;
+      if (user && tab !== 'bracket') render();
+    });
+    tab = 'setup'; render();
+  } catch(err) {
+    document.getElementById('comm-error').textContent =
+      err.message === 'timeout'
+        ? 'Connection timed out. Check your internet and try again.'
+        : 'Something went wrong. Please try again.';
   }
-  window.closeComm();
-  showLoading('Loading commissioner view...');
-  user = 'Commissioner'; isComm = true;
-
-  if (poolUnsubscribe) poolUnsubscribe();
-  poolUnsubscribe = dbListen('pool', data => {
-    if (!data || isSaving) return;
-    pool = data;
-    if (user && tab !== 'bracket') render();
-  });
-
-  tab = 'setup'; render();
 };
 
 window._logout = () => {
@@ -1030,6 +1073,10 @@ window._go = async (t) => {
   if (t === 'bracket') mobileMatchupIdx = 0;
   if (t === 'leaderboard' || t === 'view') await refreshLBScores();
   render();
+  if (t === 'bracket') {
+    const el = document.getElementById('mcw');
+    if (el) window._mobileSwipe(el);
+  }
 };
 
 window._pickGroup = (gkey, fromRound, mi, tid) => {
@@ -1038,8 +1085,16 @@ window._pickGroup = (gkey, fromRound, mi, tid) => {
   const nr = 'r'+(fromRound+1);
   g[nr][mi] = tid;
   clearDown(g, fromRound+1, mi, tid);
-  render();
-  debounceSave(saveMyBracket);
+  // On mobile, auto-advance to next matchup after picking
+  if (isMobile()) {
+    mobileMatchupIdx++;
+    render();
+    const el = document.getElementById('mcw');
+    if (el) window._mobileSwipe(el);
+  } else {
+    render();
+  }
+  debounceSave(() => saveMyBracket().then(() => showToast('Bracket saved!')));
 };
 
 function clearDown(g, round, slot, wid) {
@@ -1053,26 +1108,30 @@ function clearDown(g, round, slot, wid) {
 }
 
 window._mobileNav = (idx) => {
-  mobileMatchupIdx = Math.max(0, idx);
+  mobileMatchupIdx = Math.max(0, Math.floor(idx));
   render();
+  const el = document.getElementById('mcw');
+  if (el) window._mobileSwipe(el);
 };
 
-// Swipe support for mobile bracket
-let swipeStartX = 0;
-document.addEventListener('touchstart', e => { swipeStartX = e.touches[0].clientX; }, {passive:true});
-document.addEventListener('touchend', e => {
-  if (tab !== 'bracket' || !isMobile() || isComm) return;
-  const dx = e.changedTouches[0].clientX - swipeStartX;
-  if (Math.abs(dx) < 50) return;
-  if (dx < 0) window._mobileNav(mobileMatchupIdx + 1);
-  else window._mobileNav(mobileMatchupIdx - 1);
-}, {passive:true});
+window._mobileSwipe = (el) => {
+  let startX = 0;
+  el.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, {passive:true});
+  el.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) < 50) return;
+    if (dx < 0) window._mobileNav(mobileMatchupIdx + 1);
+    else window._mobileNav(mobileMatchupIdx - 1);
+  }, {passive:true});
+};
 
 window._pickChamp = (tid) => {
   if (!editable()) return;
   myBracket.champ = tid;
   render();
-  debounceSave(saveMyBracket);
+  const el = document.getElementById('mcw');
+  if (el) window._mobileSwipe(el);
+  debounceSave(() => saveMyBracket().then(() => showToast('Bracket saved!')));
 };
 
 window._setWin = (gkey, ri, mi, tid) => {
@@ -1100,20 +1159,26 @@ window._tName = (i, v) => { pool.teams[i].name = v; debounceSave(savePool); };
 window._tImg = (i) => document.getElementById('fi'+i)?.click();
 window._tFile = (i, inp) => {
   const f = inp.files[0]; if (!f) return;
-  // Resize image before storing to keep data small (max 400px wide)
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
     img.onload = async () => {
       const canvas = document.createElement('canvas');
-      const maxW = 400;
+      // Max 300px wide, portrait ratio — keeps files tiny for Firebase
+      const maxW = 300;
       const scale = Math.min(1, maxW / img.width);
       canvas.width = Math.round(img.width * scale);
       canvas.height = Math.round(img.height * scale);
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      const compressed = canvas.toDataURL('image/jpeg', 0.8);
+      const compressed = canvas.toDataURL('image/jpeg', 0.72);
+      // Warn if still too large (Firebase node limit ~1MB safe threshold)
+      if (compressed.length > 150000) {
+        showToast('Image is large — may be slow to save');
+      }
       pool.teams[i].img = compressed;
-      await savePool();
+      showToast('Saving image...');
+      const ok = await savePool();
+      showToast(ok !== false ? 'Image saved!' : 'Save failed — try a smaller image');
       render();
     };
     img.src = e.target.result;
