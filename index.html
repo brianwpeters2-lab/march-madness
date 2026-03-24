@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>March Madness — Ellie's Books</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+
+<!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║           MARCH MADNESS — ELLIE'S BOOKS EDITION             ║
+  ║                                                              ║
+  ║  SETUP INSTRUCTIONS (one-time, ~5 minutes):                  ║
+  ║                                                              ║
+  ║  1. Go to https://firebase.google.com                        ║
+  ║  2. Click "Get started" → Create a project (any name)        ║
+  ║  3. In the project, click "Realtime Database" in the left    ║
+  ║     sidebar → "Create Database" → Start in TEST MODE         ║
+  ║  4. Click "Project Settings" (gear icon) → "Your apps"       ║
+  ║     → Add a Web App → copy the firebaseConfig object         ║
+  ║  5. Paste your config values into the FIREBASE CONFIG        ║
+  ║     section below (replace the placeholder values)           ║
+  ║  6. Host this file on GitHub Pages (free):                   ║
+  ║     - Create a GitHub account at github.com                  ║
+  ║     - New repo → upload this file as index.html              ║
+  ║     - Settings → Pages → Source: main branch                 ║
+  ║     - Your URL: https://yourusername.github.io/reponame      ║
+  ║                                                              ║
+  ║  Commissioner password: bookworm (change in Settings)        ║
+  ╚══════════════════════════════════════════════════════════════╝
+-->
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --cream:#FDFAF4;--ink:#1a1611;--gold:#C9922A;--gold-light:#F5E6C8;--gold-dark:#8B6218;
+  --sage:#4A6741;--sage-light:#E8F0E6;--coral:#C85A3A;--coral-light:#FAE8E3;
+  --border:#E2D9C8;--muted:#7A6E5F;--white:#fff;--card-bg:#FFFEF9;
+  --shadow:0 2px 12px rgba(26,22,17,0.08);
+}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);min-height:100vh}
+h1,h2,h3{font-family:'Playfair Display',serif}
+.hidden{display:none!important}
+.screen{min-height:100vh;padding:1.5rem 1rem}
+
+/* Login */
+.login-wrap{max-width:420px;margin:0 auto;padding-top:3rem;text-align:center;position:relative}
+.hero-emoji{font-size:3.5rem;margin-bottom:1rem}
+.login-wrap h1{font-size:2rem;color:var(--gold-dark);margin-bottom:.25rem}
+.subtitle{font-size:.95rem;color:var(--muted);margin-bottom:2rem;font-style:italic}
+.name-input{width:100%;padding:14px 16px;font-size:1rem;font-family:'DM Sans',sans-serif;border:1.5px solid var(--border);border-radius:10px;background:var(--white);outline:none;text-align:center;transition:border-color .15s}
+.name-input:focus{border-color:var(--gold)}
+.comm-trigger{position:absolute;bottom:-2.5rem;right:0;font-size:.7rem;color:var(--border);cursor:pointer;user-select:none;transition:color .2s}
+.comm-trigger:hover{color:var(--muted)}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(26,22,17,.45);display:flex;align-items:center;justify-content:center;z-index:200}
+.modal{background:var(--white);border-radius:14px;padding:2rem;width:90%;max-width:360px;text-align:center;border:1px solid var(--border)}
+.modal h3{font-size:1.2rem;margin-bottom:.5rem;color:var(--gold-dark)}
+.modal p{font-size:.85rem;color:var(--muted);margin-bottom:1.25rem}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:500;cursor:pointer;border:1.5px solid;transition:all .15s}
+.btn-primary{background:var(--gold);border-color:var(--gold-dark);color:var(--white)}
+.btn-primary:hover{background:var(--gold-dark)}
+.btn-secondary{background:var(--white);border-color:var(--border);color:var(--ink)}
+.btn-secondary:hover{border-color:var(--muted)}
+.btn-danger{background:var(--coral-light);border-color:var(--coral);color:var(--coral)}
+.btn-danger:hover{background:var(--coral);color:var(--white)}
+.btn-sm{padding:6px 12px;font-size:.8rem}
+.btn-xs{padding:4px 8px;font-size:.75rem}
+
+/* Header */
+.site-header{text-align:center;padding:1.25rem 1rem .75rem;border-bottom:1.5px solid var(--border);background:var(--white);position:sticky;top:0;z-index:100}
+.site-title{font-size:clamp(1.2rem,3vw,1.7rem);color:var(--gold-dark)}
+.site-subtitle{font-size:.8rem;color:var(--muted);margin-top:1px;font-style:italic}
+.header-meta{font-size:.75rem;color:var(--muted);margin-top:4px}
+.nav-tabs{display:flex;gap:2px;background:var(--gold-light);border-radius:10px;padding:4px;margin:.5rem 0}
+.nav-tab{flex:1;padding:8px;border:none;border-radius:7px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;font-size:.82rem;transition:all .15s;background:transparent;color:var(--gold-dark)}
+.nav-tab.active{background:var(--white);box-shadow:var(--shadow);color:var(--ink)}
+.main-wrap{max-width:1100px;margin:0 auto}
+.status-badge{padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:500}
+.badge-open{background:#E8F5E9;color:#2E7D32}
+.badge-locked{background:var(--coral-light);color:var(--coral)}
+.sync-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--border);margin-right:3px;vertical-align:middle}
+.sync-dot.syncing{background:var(--gold);animation:pulse 1s infinite}
+.sync-dot.ok{background:var(--sage)}
+.sync-dot.err{background:var(--coral)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Bracket */
+.bracket-scroll{overflow-x:auto;padding-bottom:1rem}
+.bracket-groups{display:flex;flex-direction:column;gap:1.5rem;min-width:820px}
+.group-block{background:var(--white);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.group-header{background:var(--gold-light);padding:8px 16px;font-size:.75rem;font-weight:500;color:var(--gold-dark);letter-spacing:.6px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.group-tree{display:flex;align-items:stretch}
+.r-col{display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.r-col:last-child{border-right:none}
+.r-header{font-size:.68rem;font-weight:500;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;text-align:center;padding:6px 8px;border-bottom:1px solid var(--border);background:var(--cream)}
+.r-body{display:flex;flex-direction:column;flex:1;padding:6px 4px}
+.mg{display:flex;flex-direction:column;justify-content:center;flex:1;padding:4px 2px;position:relative}
+.mg-conn::after{content:'';position:absolute;right:-5px;top:25%;bottom:25%;width:5px;border-top:1.5px solid var(--border);border-right:1.5px solid var(--border);border-bottom:1.5px solid var(--border);border-radius:0 4px 4px 0;z-index:1}
+.ts{display:flex;align-items:center;gap:5px;padding:6px 8px;background:var(--white);border:1px solid var(--border);font-size:.76rem;min-height:32px;cursor:pointer;transition:all .12s;position:relative;white-space:nowrap}
+.ts:first-child{border-radius:6px 6px 0 0}
+.ts:last-child{border-radius:0 0 6px 6px;border-top-color:transparent}
+.ts:hover:not(.nc):not(.empty){border-color:var(--gold);background:var(--gold-light);z-index:2}
+.ts.winner{background:var(--gold-light);border-color:var(--gold);font-weight:500}
+.ts.correct{background:#E8F5E9;border-color:#66BB6A}
+.ts.wrong{background:var(--coral-light);border-color:var(--coral)}
+.ts.empty{color:var(--muted);cursor:default;background:var(--cream);font-style:italic}
+.ts.nc{cursor:default}
+.t-img{width:18px;height:18px;border-radius:3px;object-fit:cover;flex-shrink:0}
+.t-ph{width:18px;height:18px;border-radius:3px;background:var(--gold-light);display:flex;align-items:center;justify-content:center;font-size:.55rem;color:var(--gold-dark);font-weight:500;flex-shrink:0;display:inline-flex}
+.t-name{flex:1;overflow:hidden;text-overflow:ellipsis}
+.t-seed{font-size:.65rem;color:var(--muted);flex-shrink:0}
+.champ-box{background:var(--gold-light);border:2px solid var(--gold);border-radius:12px;padding:14px 10px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+.champ-img{width:48px;height:48px;border-radius:8px;object-fit:cover}
+.champ-ph{width:48px;height:48px;border-radius:8px;background:var(--white);border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:.6rem;color:var(--muted)}
+.champ-name{font-size:.9rem;font-weight:500;color:var(--gold-dark)}
+.finals-row{display:flex;align-items:center;justify-content:center;background:var(--cream);border:1px solid var(--border);border-radius:14px;overflow:hidden;min-width:820px}
+.final-half{flex:1;display:flex;align-items:center;justify-content:center;padding:12px 16px;gap:8px;border-right:1px solid var(--border)}
+.final-half:last-child{border-right:none}
+.final-slot{display:flex;align-items:center;gap:5px;padding:7px 10px;background:var(--white);border:1px solid var(--border);border-radius:8px;font-size:.8rem;min-width:120px;cursor:pointer;transition:all .12s}
+.final-slot:hover:not(.nc){border-color:var(--gold);background:var(--gold-light)}
+.final-slot.winner{background:var(--gold-light);border-color:var(--gold);font-weight:500}
+.final-slot.correct{background:#E8F5E9;border-color:#66BB6A}
+.final-slot.wrong{background:var(--coral-light);border-color:var(--coral)}
+.final-slot.empty{color:var(--muted);cursor:default;font-style:italic}
+.final-slot.nc{cursor:default}
+
+/* Alerts */
+.alert{padding:9px 13px;border-radius:8px;font-size:.82rem;margin-bottom:1rem}
+.alert-warn{background:#FFF8E1;color:#795548;border:1px solid #FFE082}
+.alert-info{background:var(--gold-light);color:var(--gold-dark);border:1px solid var(--gold)}
+.alert-hint{background:var(--sage-light);color:var(--sage);border:1px solid #A5D6A7;font-size:.78rem;text-align:center}
+.alert-err{background:var(--coral-light);color:var(--coral);border:1px solid var(--coral)}
+
+/* Leaderboard */
+.lb-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:10px;background:var(--white);border:1px solid var(--border);margin-bottom:8px}
+.lb-rank{font-size:1rem;font-family:'Playfair Display',serif;color:var(--muted);width:26px}
+.lb-name{flex:1;font-weight:500}
+.lb-score{font-size:1rem;font-family:'Playfair Display',serif;color:var(--gold-dark)}
+.lb-row.me{border-color:var(--gold);background:var(--gold-light)}
+.scoring-info{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem}
+.scoring-badge{padding:3px 9px;background:var(--gold-light);border-radius:6px;font-size:.76rem;color:var(--gold-dark)}
+
+/* Team setup */
+.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.team-card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:7px}
+.team-seed-lbl{font-size:.68rem;color:var(--muted);font-weight:500}
+.team-img-area{width:52px;height:52px;border-radius:7px;border:1.5px dashed var(--border);background:var(--gold-light);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-shrink:0}
+.team-img-area img{width:100%;height:100%;object-fit:cover;border-radius:6px}
+.team-info-row{display:flex;align-items:center;gap:7px}
+.team-name-input{flex:1;padding:5px 7px;font-size:.82rem;font-family:'DM Sans',sans-serif;border:1px solid var(--border);border-radius:6px;background:var(--cream);outline:none}
+.team-name-input:focus{border-color:var(--gold)}
+
+/* Results */
+.results-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.result-matchup{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:9px}
+.result-title{font-size:.75rem;color:var(--muted);font-weight:500;margin-bottom:5px}
+.result-btn{width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:6px;background:var(--white);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.78rem;text-align:left;transition:all .15s;display:flex;align-items:center;gap:5px;margin-bottom:3px}
+.result-btn:hover{border-color:var(--gold);background:var(--gold-light)}
+.result-btn.sel{border-color:var(--sage);background:var(--sage-light);color:var(--sage)}
+
+/* Settings */
+.card{background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:1.25rem}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border)}
+.settings-label{font-size:.88rem;font-weight:500}
+.settings-desc{font-size:.76rem;color:var(--muted);margin-top:1px}
+.toggle{position:relative;width:42px;height:22px;background:var(--border);border-radius:11px;cursor:pointer;transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--sage)}
+.toggle-dot{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--white);transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle.on .toggle-dot{left:23px}
+input[type=text],input[type=password],input[type=datetime-local]{padding:7px 9px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:.88rem;background:var(--white);outline:none}
+input:focus{border-color:var(--gold)}
+.participant-row{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:var(--white);border:1px solid var(--border);border-radius:8px;font-size:.88rem;margin-bottom:6px}
+.has-bracket{color:var(--sage);font-size:.76rem}
+.no-bracket{color:var(--muted);font-size:.76rem}
+.section-title{font-size:1.2rem;margin-bottom:.9rem}
+.empty-state{text-align:center;color:var(--muted);padding:2.5rem 1rem;font-size:.9rem}
+.view-bracket-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--white);border:1px solid var(--border);border-radius:8px;font-size:.88rem;cursor:pointer;transition:border-color .15s;margin-bottom:7px}
+.view-bracket-row:hover{border-color:var(--gold)}
+
+/* Loading */
+.loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;gap:1rem;color:var(--muted)}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Config screen */
+.config-screen{max-width:560px;margin:3rem auto;padding:0 1rem}
+.config-screen h2{color:var(--gold-dark);margin-bottom:.5rem}
+.config-screen p{font-size:.9rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.config-input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;background:var(--white);outline:none;margin-bottom:10px}
+.config-input:focus{border-color:var(--gold)}
+.step{display:flex;gap:10px;align-items:flex-start;margin-bottom:1rem;font-size:.88rem}
+.step-num{background:var(--gold);color:var(--white);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:500;flex-shrink:0;margin-top:1px}
+code{background:var(--gold-light);padding:1px 5px;border-radius:4px;font-size:.82rem;color:var(--gold-dark)}
+
+@media(max-width:600px){
+  .screen{padding:.75rem}
+  .results-grid{grid-template-columns:1fr}
+  .team-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- Commissioner modal -->
+<div id="comm-modal" class="modal-bg hidden">
+  <div class="modal">
+    <h3>Commissioner Login</h3>
+    <p>Enter your commissioner password to manage the pool.</p>
+    <input type="password" id="comm-pass" placeholder="Password..." style="width:100%;margin-bottom:12px;text-align:center">
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary" style="flex:1;justify-content:center" onclick="closeComm()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="doCommLogin()">Enter</button>
+    </div>
+    <div id="comm-error" style="color:var(--coral);font-size:.8rem;margin-top:8px"></div>
+    <p style="font-size:.7rem;color:var(--border);margin-top:8px">Default password: bookworm</p>
+  </div>
+</div>
+
+<script type="module">
+// ══════════════════════════════════════════
+//  FIREBASE CONFIG — paste your values here
+// ══════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey:            "const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyAAW69l18MdQgmbk3l5kGdNfn4Iwg78lO0",
+  authDomain:        "test1-36b83.firebaseapp.com",
+  databaseURL:       "https://test1-36b83-default-rtdb.firebaseio.com",
+  projectId:         "test1-36b83",
+  storageBucket:     "test1-36b83.firebasestorage.app",
+  messagingSenderId: "502636344564",
+  appId:             "1:502636344564:web:d6fe9a95713553fe8f5aa1"
+};
+",
+  authDomain:        "PASTE_YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL:       "https://PASTE_YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+  projectId:         "PASTE_YOUR_PROJECT_ID",
+  storageBucket:     "PASTE_YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "PASTE_YOUR_SENDER_ID",
+  appId:             "PASTE_YOUR_APP_ID"
+};
+// ══════════════════════════════════════════
+
+const CONFIGURED = !FIREBASE_CONFIG.apiKey.includes('PASTE');
+
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set, get, onValue, update } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+let db, app;
+
+if (CONFIGURED) {
+  app = initializeApp(FIREBASE_CONFIG);
+  db = getDatabase(app);
+}
+
+// ── DB helpers ──
+async function dbGet(path) {
+  if (!db) return null;
+  try {
+    const snap = await get(ref(db, path));
+    return snap.exists() ? snap.val() : null;
+  } catch(e) { console.error('dbGet', e); return null; }
+}
+
+async function dbSet(path, value) {
+  if (!db) return false;
+  try { await set(ref(db, path), value); return true; }
+  catch(e) { console.error('dbSet', e); return false; }
+}
+
+async function dbUpdate(path, value) {
+  if (!db) return false;
+  try { await update(ref(db, path), value); return true; }
+  catch(e) { console.error('dbUpdate', e); return false; }
+}
+
+function dbListen(path, cb) {
+  if (!db) return () => {};
+  const unsubscribe = onValue(ref(db, path), snap => {
+    cb(snap.exists() ? snap.val() : null);
+  });
+  return unsubscribe;
+}
+
+// ── State ──
+let user = null, isComm = false, tab = 'bracket', viewUser = null;
+let pool = null, myBracket = null, viewBracket = null;
+let lbScores = [];
+let syncStatus = 'ok';
+let saveTimer = null;
+let poolUnsubscribe = null;
+
+const SC = [1, 2, 4, 8];
+
+function defaultPool() {
+  return {
+    teams: Array.from({length:16}, (_,i) => ({
+      id:i, name:'', img:'', seed:(i%8)+1, group:i<8?'A':'B'
+    })),
+    actualResults: {},
+    settings: { locked:false, deadline:'', commPass:'bookworm' },
+    participants: [],
+    initialized: false
+  };
+}
+
+function defaultBracket() {
+  return {
+    gA: { r0:[0,1,2,3,4,5,6,7],  r1:Array(4).fill(null), r2:Array(2).fill(null), r3:[null] },
+    gB: { r0:[8,9,10,11,12,13,14,15], r1:Array(4).fill(null), r2:Array(2).fill(null), r3:[null] },
+    champ: null
+  };
+}
+
+// ── Sync helpers ──
+function setSyncStatus(s) {
+  syncStatus = s;
+  const dot = document.querySelector('.sync-dot');
+  if (dot) dot.className = 'sync-dot ' + s;
+}
+
+function debounceSave(fn, ms=900) {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(fn, ms);
+}
+
+async function savePool() {
+  setSyncStatus('syncing');
+  const ok = await dbSet('pool', pool);
+  setSyncStatus(ok ? 'ok' : 'err');
+}
+
+async function saveMyBracket() {
+  if (!user || isComm) return;
+  setSyncStatus('syncing');
+  const key = sanitizeKey(user);
+  const ok = await dbSet('brackets/' + key, myBracket);
+  setSyncStatus(ok ? 'ok' : 'err');
+}
+
+function sanitizeKey(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+}
+
+// ── Helpers ──
+function dlPast() { return pool.settings.deadline && new Date() > new Date(pool.settings.deadline); }
+function editable() { return !isComm && !pool.settings.locked && !dlPast(); }
+function T(id) { return (id !== null && id !== undefined) ? pool.teams[id] : null; }
+
+function thumb(id, sz=18) {
+  const t = T(id);
+  if (!t) return `<span class="t-ph" style="width:${sz}px;height:${sz}px;min-width:${sz}px">?</span>`;
+  if (t.img) return `<img class="t-img" src="${t.img}" style="width:${sz}px;height:${sz}px;min-width:${sz}px">`;
+  return `<span class="t-ph" style="width:${sz}px;height:${sz}px;min-width:${sz}px">${(t.name||'?').slice(0,2).toUpperCase()}</span>`;
+}
+
+function mups(round, grp) {
+  const s = grp['r'+round] || [], m = [];
+  for (let i=0; i<s.length; i+=2) m.push([s[i], s[i+1]]);
+  return m;
+}
+
+function calcScore(br) {
+  if (!br || !pool) return 0;
+  let s = 0;
+  const ar = pool.actualResults || {};
+  ['gA','gB'].forEach(gk => {
+    const g = br[gk]; if (!g) return;
+    const ag = ar[gk] || {};
+    ['r1','r2','r3'].forEach((rk, ri) => {
+      const picks = g[rk], actual = ag[rk];
+      if (!picks || !actual) return;
+      picks.forEach((p, j) => { if (p !== null && p !== undefined && actual[j] === p) s += SC[ri]; });
+    });
+  });
+  if (br.champ !== null && br.champ !== undefined && ar.champ === br.champ) s += SC[3];
+  return s;
+}
+
+// ── Render ──
+function showLoading(msg='Loading...') {
+  document.getElementById('app').innerHTML = `
+    <div class="loading-screen">
+      <div class="spinner"></div>
+      <div style="font-size:.9rem">${msg}</div>
+    </div>`;
+}
+
+function showConfigScreen() {
+  document.getElementById('app').innerHTML = `
+  <div class="config-screen">
+    <div style="font-size:2rem;margin-bottom:.5rem">📚</div>
+    <h2>March Madness Setup</h2>
+    <p>This app needs a free Firebase database to sync picks across devices. Follow these steps once, then share the URL with everyone!</p>
+    <div class="step"><div class="step-num">1</div><div>Go to <a href="https://firebase.google.com" target="_blank" style="color:var(--gold-dark)">firebase.google.com</a> and click <strong>Get started</strong> → create a new project (any name, disable Analytics).</div></div>
+    <div class="step"><div class="step-num">2</div><div>In the left sidebar, click <strong>Realtime Database</strong> → <strong>Create Database</strong> → choose any region → <strong>Start in test mode</strong>.</div></div>
+    <div class="step"><div class="step-num">3</div><div>Click the <strong>⚙ gear icon</strong> → <strong>Project settings</strong> → scroll to <em>Your apps</em> → click <strong>&lt;/&gt; Web</strong> → register the app → copy the <code>firebaseConfig</code> values.</div></div>
+    <div class="step"><div class="step-num">4</div><div>Open this HTML file in a text editor and paste your values into the <code>FIREBASE_CONFIG</code> section near the top.</div></div>
+    <div class="step"><div class="step-num">5</div><div>Upload to GitHub Pages: create a repo, upload the file as <code>index.html</code>, go to Settings → Pages → Source: main. Your URL will be <code>https://yourusername.github.io/reponame</code>.</div></div>
+    <div style="margin-top:1.5rem;padding:1rem;background:var(--gold-light);border-radius:10px;font-size:.85rem;color:var(--gold-dark)">
+      <strong>That's it!</strong> Firebase free tier supports up to 100 simultaneous connections and 1GB of data — more than enough for a bracket pool.
+    </div>
+  </div>`;
+}
+
+function render() {
+  if (!CONFIGURED) { showConfigScreen(); return; }
+  document.getElementById('app').innerHTML = user ? renderMain() : renderLogin();
+  if (!user) attachLogin();
+}
+
+function renderLogin() {
+  return `<div class="screen"><div class="login-wrap">
+    <div class="hero-emoji">📚</div>
+    <h1>March Madness</h1>
+    <div class="subtitle">Characters from Ellie's books</div>
+    <input class="name-input" id="ln" type="text" placeholder="Enter your name to join..." autocomplete="off">
+    <br><br>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;font-size:1rem;padding:14px" onclick="window._playerLogin()">Join the Pool →</button>
+    <div id="lerr" style="color:var(--coral);font-size:.82rem;margin-top:8px"></div>
+    <div class="comm-trigger" onclick="window._openComm()" title="Commissioner">⚙</div>
+  </div></div>`;
+}
+
+function attachLogin() {
+  document.getElementById('ln')?.addEventListener('keydown', e => { if (e.key==='Enter') window._playerLogin(); });
+  document.getElementById('comm-pass')?.addEventListener('keydown', e => { if (e.key==='Enter') window._doCommLogin(); });
+}
+
+function renderMain() {
+  const tabs = isComm
+    ? [['setup','Teams'],['results','Results'],['view','Brackets'],['settings','Settings']]
+    : [['bracket','My Bracket'],['leaderboard','Leaderboard']];
+  return `
+  <div class="site-header"><div class="main-wrap">
+    <div class="site-title">📚 March Madness</div>
+    <div class="site-subtitle">Characters from Ellie's books</div>
+    ${pool.settings.deadline ? `<div class="header-meta">Deadline: ${new Date(pool.settings.deadline).toLocaleString()}</div>` : ''}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+      <nav class="nav-tabs" style="flex:1;margin:0">
+        ${tabs.map(([id,l]) => `<button class="nav-tab${tab===id?' active':''}" onclick="window._go('${id}')">${l}</button>`).join('')}
+      </nav>
+      <button class="btn btn-secondary btn-sm" onclick="window._logout()" style="margin-left:10px;white-space:nowrap">Sign out</button>
+    </div>
+    <div style="font-size:.72rem;color:var(--muted);margin-top:3px;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:6px">
+      <strong>${user}</strong>
+      ${pool.settings.locked||dlPast() ? '<span class="status-badge badge-locked">Locked</span>' : '<span class="status-badge badge-open">Open</span>'}
+      <span><span class="sync-dot ${syncStatus}"></span><span style="font-size:.7rem;color:var(--muted)">synced</span></span>
+    </div>
+  </div></div>
+  <div class="screen"><div class="main-wrap">${renderTab()}</div></div>`;
+}
+
+function renderTab() {
+  if (tab==='bracket')    return renderBracket(myBracket, editable());
+  if (tab==='leaderboard') return renderLB();
+  if (tab==='setup')      return renderSetup();
+  if (tab==='results')    return renderResults();
+  if (tab==='view')       return renderViewList();
+  if (tab==='viewone')    return renderViewOne();
+  if (tab==='settings')   return renderSettings();
+  return '';
+}
+
+// ── BRACKET ──
+function renderBracket(br, edit) {
+  if (!br) return '<div class="empty-state">No bracket found.</div>';
+  const locked = !edit;
+  const ar = pool.actualResults || {};
+  let html = '';
+  if (!pool.initialized) html += `<div class="alert alert-warn">The commissioner hasn't set up the teams yet. Check back soon!</div>`;
+  if (locked && (pool.settings.locked || dlPast())) html += `<div class="alert alert-info">Brackets are locked — your picks are saved!</div>`;
+  if (!locked) html += `<div class="alert alert-hint">Click a team name to advance them to the next round</div>`;
+
+  html += `<div class="bracket-scroll"><div class="bracket-groups">`;
+
+  ['A','B'].forEach(gk => {
+    const gkey = 'g'+gk;
+    const g = br[gkey] || defaultBracket()[gkey];
+    const ag = ar[gkey] || {};
+
+    html += `<div class="group-block">
+      <div class="group-header">Group ${gk} — Seeds 1–8</div>
+      <div class="group-tree">`;
+
+    // Round of 8
+    html += `<div class="r-col" style="flex:2;min-width:150px">
+      <div class="r-header">Round of 8</div><div class="r-body">`;
+    mups(0,g).forEach((pair,mi) => {
+      html += `<div class="mg mg-conn">${pair.map(tid => tSlot(tid,0,mi,gkey,br,ar,locked,edit)).join('')}</div>`;
+    });
+    html += `</div></div>`;
+
+    // Quarterfinals
+    html += `<div class="r-col" style="flex:2;min-width:150px">
+      <div class="r-header">Quarterfinals</div><div class="r-body">`;
+    mups(1,g).forEach((pair,mi) => {
+      html += `<div class="mg mg-conn">${pair.map(tid => tSlot(tid,1,mi,gkey,br,ar,locked,edit)).join('')}</div>`;
+    });
+    html += `</div></div>`;
+
+    // Semifinals
+    html += `<div class="r-col" style="flex:2;min-width:150px">
+      <div class="r-header">Semifinals</div><div class="r-body">`;
+    mups(2,g).forEach((pair,mi) => {
+      html += `<div class="mg mg-conn">${pair.map(tid => tSlot(tid,2,mi,gkey,br,ar,locked,edit)).join('')}</div>`;
+    });
+    html += `</div></div>`;
+
+    // Group Winner
+    const gWinner = g.r3 ? g.r3[0] : null;
+    const gt = T(gWinner);
+    html += `<div class="r-col" style="flex:1.5;min-width:118px;border-right:none">
+      <div class="r-header">Group Winner</div>
+      <div class="r-body" style="display:flex;align-items:center;justify-content:center;">
+        <div class="champ-box" style="width:calc(100% - 8px);padding:10px;">
+          <div style="font-size:1.1rem">${gk==='A'?'🌟':'⚡'}</div>
+          ${gt&&gt.img ? `<img class="champ-img" src="${gt.img}" style="width:36px;height:36px">` :
+            gt&&gt.name ? `<div class="champ-ph" style="width:36px;height:36px;font-size:.65rem;font-weight:500">${gt.name.slice(0,3)}</div>` :
+            `<div class="champ-ph" style="width:36px;height:36px">?</div>`}
+          <div class="champ-name" style="font-size:.76rem">${gt&&gt.name ? gt.name : '—'}</div>
+        </div>
+      </div>
+    </div>`;
+
+    html += `</div></div>`;
+  });
+
+  // Championship
+  const gAw = br.gA ? br.gA.r3[0] : null;
+  const gBw = br.gB ? br.gB.r3[0] : null;
+  const ct = T(br.champ);
+
+  html += `<div class="finals-row">
+    <div class="final-half">
+      <span style="font-size:.72rem;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.4px">Group A</span>
+      <span style="color:var(--muted)">→</span>
+      ${fSlot(gAw, br, ar, locked)}
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;padding:12px 16px;gap:6px;min-width:150px">
+      <div class="champ-box">
+        <div style="font-size:1.4rem">🏆</div>
+        <div style="font-size:.65rem;color:var(--gold-dark);font-weight:500;letter-spacing:.5px;text-transform:uppercase">Champion</div>
+        ${ct&&ct.img ? `<img class="champ-img" src="${ct.img}">` :
+          ct&&ct.name ? `<div class="champ-ph" style="font-size:.65rem;font-weight:500">${ct.name.slice(0,3)}</div>` :
+          `<div class="champ-ph">?</div>`}
+        <div class="champ-name">${ct&&ct.name ? ct.name : '—'}</div>
+      </div>
+    </div>
+    <div class="final-half" style="flex-direction:row-reverse;border-right:none;border-left:1px solid var(--border)">
+      <span style="font-size:.72rem;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.4px">Group B</span>
+      <span style="color:var(--muted)">←</span>
+      ${fSlot(gBw, br, ar, locked)}
+    </div>
+  </div>`;
+
+  html += `</div></div>`;
+  return html;
+}
+
+function tSlot(tid, round, mi, gkey, br, ar, locked, edit) {
+  const g = br[gkey]; const ag = ar[gkey] || {};
+  const t = T(tid);
+  const nextRk = 'r'+(round+1);
+  const isWin = g[nextRk] && g[nextRk][mi] === tid;
+  const aNext = ag[nextRk];
+  const aWin = aNext && aNext[mi] === tid;
+  const aLose = aNext && aNext[mi] !== null && aNext[mi] !== undefined && aNext[mi] !== tid;
+  let cls = 'ts';
+  if (!t||!t.name) cls += ' empty';
+  else if (isWin && aWin) cls += ' winner correct';
+  else if (isWin && aLose && round>0) cls += ' winner wrong';
+  else if (isWin) cls += ' winner';
+  if (locked || round===0) cls += ' nc';
+  const click = (!locked && t && t.name && round>0) ? `onclick="window._pickGroup('${gkey}',${round-1},${mi},${tid})"` : '';
+  return `<div class="${cls}" ${click}>${thumb(tid)}<span class="t-name">${t&&t.name ? t.name : 'TBD'}</span>${t&&t.seed ? `<span class="t-seed">${t.seed}</span>` : ''}</div>`;
+}
+
+function fSlot(tid, br, ar, locked) {
+  const t = T(tid);
+  const isWin = br.champ === tid;
+  const aWin = (ar.champ) === tid;
+  const aLose = ar.champ !== null && ar.champ !== undefined && ar.champ !== tid;
+  let cls = 'final-slot';
+  if (!t||!t.name) cls += ' empty';
+  else if (isWin && aWin) cls += ' correct';
+  else if (isWin && aLose) cls += ' wrong';
+  else if (isWin) cls += ' winner';
+  if (locked) cls += ' nc';
+  const click = (!locked && t && t.name) ? `onclick="window._pickChamp(${tid})"` : '';
+  return `<div class="${cls}" ${click}>${thumb(tid,20)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${t&&t.name ? t.name : 'TBD'}</span></div>`;
+}
+
+// ── LEADERBOARD ──
+function renderLB() {
+  const scores = [...lbScores].sort((a,b) => b.score - a.score);
+  let h = `<h2 class="section-title">Leaderboard</h2>
+  <div class="scoring-info">
+    <span class="scoring-badge">R8: 1pt</span>
+    <span class="scoring-badge">QF: 2pts</span>
+    <span class="scoring-badge">SF: 4pts</span>
+    <span class="scoring-badge">Final: 8pts</span>
+  </div>`;
+  if (!scores.length) return h + '<div class="empty-state">No players yet.</div>';
+  scores.forEach((p,i) => {
+    const m = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.';
+    h += `<div class="lb-row${p.name===user?' me':''}">
+      <div class="lb-rank">${m}</div>
+      <div class="lb-name">${p.name}${p.name===user?' (you)':''}</div>
+      <div class="lb-score">${p.score} pts</div>
+    </div>`;
+  });
+  return h;
+}
+
+// ── SETUP ──
+function renderSetup() {
+  let h = `<h2 class="section-title">Team Setup</h2>
+  <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">Set up 8 characters per group. Click the photo box to upload an image.</p>`;
+  if (!pool.initialized) h += `<div class="alert alert-warn">Hit "Save & Activate" when you're ready for players to start picking!</div>`;
+  ['A','B'].forEach(gk => {
+    const start = gk==='A' ? 0 : 8;
+    h += `<div style="margin-bottom:1.5rem">
+      <div style="font-size:1rem;font-family:'Playfair Display',serif;margin-bottom:.6rem;color:var(--gold-dark)">Group ${gk}</div>
+      <div class="team-grid">`;
+    for (let i=start; i<start+8; i++) {
+      const t = pool.teams[i];
+      h += `<div class="team-card">
+        <div class="team-seed-lbl">Seed #${t.seed}</div>
+        <div class="team-info-row">
+          <div class="team-img-area" onclick="window._tImg(${i})">
+            ${t.img ? `<img src="${t.img}">` : `<span style="font-size:1.2rem">📸</span>`}
+          </div>
+          <input class="team-name-input" type="text" placeholder="Character name..." value="${t.name||''}" oninput="window._tName(${i},this.value)">
+        </div>
+        <input type="file" id="fi${i}" accept="image/*" style="display:none" onchange="window._tFile(${i},this)">
+      </div>`;
+    }
+    h += `</div></div>`;
+  });
+  h += `<div style="display:flex;gap:10px;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="window._activate()">Save & Activate</button>
+    <button class="btn btn-secondary" onclick="window._resetAll()">Reset All Brackets</button>
+  </div>`;
+  return h;
+}
+
+// ── RESULTS ──
+function renderResults() {
+  let h = `<h2 class="section-title">Enter Results</h2>`;
+  const ar = pool.actualResults || {};
+  ['A','B'].forEach(gk => {
+    const gkey = 'g'+gk; const ag = ar[gkey] || {};
+    const fakeBr = { [gkey]: {
+      r0: gk==='A' ? [0,1,2,3,4,5,6,7] : [8,9,10,11,12,13,14,15],
+      r1: ag.r1 || Array(4).fill(null),
+      r2: ag.r2 || Array(2).fill(null),
+      r3: ag.r3 || [null]
+    }};
+    h += `<div style="margin-bottom:1.5rem">
+      <div style="font-size:1rem;font-family:'Playfair Display',serif;margin-bottom:.5rem;color:var(--gold-dark)">Group ${gk}</div>`;
+    ['Round of 8','Quarterfinals','Semifinals','Group Final'].forEach((rn,ri) => {
+      const ms = mups(ri, fakeBr[gkey]);
+      h += `<div style="margin-bottom:.75rem">
+        <h3 style="font-size:.85rem;margin-bottom:.4rem;color:var(--muted)">${rn}</h3>
+        <div class="results-grid">`;
+      ms.forEach((pair,mi) => {
+        const [a,b] = pair, ta=T(a), tb=T(b);
+        const cw = ri===3 ? (ag.r3 ? ag.r3[0] : null) : (ag['r'+(ri+1)]||[])[mi];
+        if (!ta?.name && !tb?.name) return;
+        h += `<div class="result-matchup">
+          <div class="result-title">Match ${mi+1}</div>
+          ${ta?.name ? `<button class="result-btn${cw===a?' sel':''}" onclick="window._setWin('${gkey}',${ri},${mi},${a})">${thumb(a)} ${ta.name} ${cw===a?'✓':''}</button>` : ''}
+          ${tb?.name ? `<button class="result-btn${cw===b?' sel':''}" onclick="window._setWin('${gkey}',${ri},${mi},${b})">${thumb(b)} ${tb.name} ${cw===b?'✓':''}</button>` : ''}
+        </div>`;
+      });
+      h += `</div></div>`;
+    });
+    h += `</div>`;
+  });
+
+  const arGA = ar.gA||{}, arGB = ar.gB||{};
+  const gAw = arGA.r3 ? arGA.r3[0] : null;
+  const gBw = arGB.r3 ? arGB.r3[0] : null;
+  const ta = T(gAw), tb = T(gBw);
+  h += `<div>
+    <div style="font-size:1rem;font-family:'Playfair Display',serif;margin-bottom:.5rem;color:var(--gold-dark)">🏆 Championship</div>
+    <div class="results-grid"><div class="result-matchup">
+      <div class="result-title">Final</div>
+      ${ta?.name ? `<button class="result-btn${ar.champ===gAw?' sel':''}" onclick="window._setChampWin(${gAw})">${thumb(gAw)} ${ta.name} ${ar.champ===gAw?'✓':''}</button>` : '<div style="color:var(--muted);font-size:.8rem;padding:4px">Group A winner TBD</div>'}
+      ${tb?.name ? `<button class="result-btn${ar.champ===gBw?' sel':''}" onclick="window._setChampWin(${gBw})">${thumb(gBw)} ${tb.name} ${ar.champ===gBw?'✓':''}</button>` : '<div style="color:var(--muted);font-size:.8rem;padding:4px">Group B winner TBD</div>'}
+    </div></div>
+  </div>`;
+  return h;
+}
+
+// ── VIEW BRACKETS ──
+function renderViewList() {
+  let h = `<h2 class="section-title">All Brackets</h2>`;
+  if (!pool.participants.length) return h + '<div class="empty-state">No players have joined yet.</div>';
+  const sorted = [...lbScores].sort((a,b) => b.score - a.score);
+  const order = sorted.length ? sorted.map(s=>s.name) : pool.participants;
+  order.forEach((name,i) => {
+    const sc = lbScores.find(s => s.name===name);
+    h += `<div class="view-bracket-row" onclick="window._viewOne('${name}')">
+      <div style="display:flex;align-items:center;gap:9px">
+        <span style="color:var(--muted);font-size:.85rem">${i+1}.</span>
+        <span style="font-weight:500">${name}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px">
+        ${sc ? `<span style="font-family:'Playfair Display',serif;color:var(--gold-dark)">${sc.score} pts</span>` : ''}
+        <span style="color:var(--muted);font-size:.82rem">View →</span>
+      </div>
+    </div>`;
+  });
+  return h;
+}
+
+function renderViewOne() {
+  if (!viewUser) return renderViewList();
+  let h = `<div style="display:flex;align-items:center;gap:9px;margin-bottom:1rem">
+    <button class="btn btn-secondary btn-sm" onclick="window._go('view')">← Back</button>
+    <h2 style="font-size:1rem">${viewUser}'s Bracket</h2>
+  </div>`;
+  h += viewBracket ? renderBracket(viewBracket, false) : '<div class="empty-state">Loading...</div>';
+  return h;
+}
+
+// ── SETTINGS ──
+function renderSettings() {
+  const s = pool.settings;
+  return `<h2 class="section-title">Settings</h2>
+  <div class="card" style="margin-bottom:1rem">
+    <div class="settings-row">
+      <div><div class="settings-label">Lock all brackets</div><div class="settings-desc">Prevents any new picks</div></div>
+      <div class="toggle${s.locked?' on':''}" onclick="window._togSetting('locked')"><div class="toggle-dot"></div></div>
+    </div>
+    <div class="settings-row">
+      <div><div class="settings-label">Submission deadline</div><div class="settings-desc">Brackets auto-lock at this time</div></div>
+      <input type="datetime-local" value="${s.deadline||''}" onchange="pool.settings.deadline=this.value;savePool()" style="font-size:.78rem">
+    </div>
+    <div class="settings-row" style="border:none">
+      <div><div class="settings-label">Commissioner password</div></div>
+      <input type="text" value="${s.commPass}" onchange="pool.settings.commPass=this.value;savePool()" style="width:130px">
+    </div>
+  </div>
+  <div class="card">
+    <div style="font-size:1rem;font-family:'Playfair Display',serif;margin-bottom:.75rem">Participants (${pool.participants.length})</div>
+    ${pool.participants.length
+      ? pool.participants.map(p => `
+        <div class="participant-row">
+          <span>${p}</span>
+          <button class="btn btn-danger btn-xs" onclick="window._rmv('${p}')">Remove</button>
+        </div>`).join('')
+      : '<div class="empty-state" style="padding:1rem">No players yet.</div>'
+    }
+  </div>`;
+}
+
+// ── ACTIONS ──
+window._openComm = () => {
+  document.getElementById('comm-modal').classList.remove('hidden');
+  document.getElementById('comm-pass').value='';
+  document.getElementById('comm-error').textContent='';
+};
+window.closeComm = () => document.getElementById('comm-modal').classList.add('hidden');
+
+window._playerLogin = async () => {
+  const n = document.getElementById('ln').value.trim();
+  if (!n) { document.getElementById('lerr').textContent='Please enter your name.'; return; }
+  showLoading('Joining the pool...');
+  const existing = await dbGet('pool');
+  pool = existing || defaultPool();
+  user = n; isComm = false;
+  if (!pool.participants.includes(n)) {
+    pool.participants.push(n);
+    await savePool();
+  }
+  const key = sanitizeKey(n);
+  const br = await dbGet('brackets/' + key);
+  myBracket = br || defaultBracket();
+  if (!br) await dbSet('brackets/' + key, myBracket);
+
+  // Start listening for pool changes (real-time leaderboard etc)
+  if (poolUnsubscribe) poolUnsubscribe();
+  poolUnsubscribe = dbListen('pool', data => {
+    if (data) { pool = data; if (user) render(); }
+  });
+
+  // Load leaderboard scores
+  await refreshLBScores();
+
+  tab = 'bracket'; render();
+};
+
+window._doCommLogin = async () => {
+  const p = document.getElementById('comm-pass').value;
+  const existing = await dbGet('pool');
+  pool = existing || defaultPool();
+  if (p !== pool.settings.commPass) {
+    document.getElementById('comm-error').textContent = 'Wrong password.'; return;
+  }
+  window.closeComm();
+  showLoading('Loading commissioner view...');
+  user = 'Commissioner'; isComm = true;
+
+  if (poolUnsubscribe) poolUnsubscribe();
+  poolUnsubscribe = dbListen('pool', data => {
+    if (data) { pool = data; if (user) render(); }
+  });
+
+  await refreshLBScores();
+  tab = 'setup'; render();
+};
+
+window._logout = () => {
+  if (poolUnsubscribe) poolUnsubscribe();
+  user = null; isComm = false; myBracket = null; pool = null; lbScores = [];
+  render();
+};
+
+window._go = async (t) => {
+  tab = t;
+  if (t === 'leaderboard' || t === 'view') await refreshLBScores();
+  render();
+};
+
+window._pickGroup = (gkey, fromRound, mi, tid) => {
+  if (!editable()) return;
+  const g = myBracket[gkey];
+  const nr = 'r'+(fromRound+1);
+  g[nr][mi] = tid;
+  clearDown(g, fromRound+1, mi, tid);
+  render();
+  debounceSave(saveMyBracket);
+};
+
+function clearDown(g, round, slot, wid) {
+  if (round >= 3) return;
+  const ns = Math.floor(slot/2), nr = 'r'+(round+1);
+  const cv = g[nr][ns];
+  if (cv !== null && cv !== undefined) {
+    const mp = mups(round, g)[slot];
+    if (!mp || !mp.includes(cv)) { g[nr][ns] = null; clearDown(g, round+1, ns, null); }
+  }
+}
+
+window._pickChamp = (tid) => {
+  if (!editable()) return;
+  myBracket.champ = tid;
+  render();
+  debounceSave(saveMyBracket);
+};
+
+window._setWin = (gkey, ri, mi, tid) => {
+  if (!pool.actualResults) pool.actualResults = {};
+  if (!pool.actualResults[gkey]) pool.actualResults[gkey] = {};
+  const ag = pool.actualResults[gkey];
+  if (ri === 3) {
+    if (!ag.r3) ag.r3 = [null];
+    ag.r3[0] = ag.r3[0] === tid ? null : tid;
+  } else {
+    const nk = 'r'+(ri+1);
+    if (!ag[nk]) ag[nk] = Array(Math.pow(2,2-ri)).fill(null);
+    ag[nk][mi] = ag[nk][mi] === tid ? null : tid;
+  }
+  render(); debounceSave(savePool);
+};
+
+window._setChampWin = (tid) => {
+  if (!pool.actualResults) pool.actualResults = {};
+  pool.actualResults.champ = pool.actualResults.champ === tid ? null : tid;
+  render(); debounceSave(savePool);
+};
+
+window._tName = (i, v) => { pool.teams[i].name = v; debounceSave(savePool); };
+window._tImg = (i) => document.getElementById('fi'+i)?.click();
+window._tFile = (i, inp) => {
+  const f = inp.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = async e => { pool.teams[i].img = e.target.result; await savePool(); render(); };
+  r.readAsDataURL(f);
+};
+
+window._activate = async () => {
+  pool.initialized = true;
+  await savePool();
+  alert('Pool activated! Players can now join and pick their brackets.');
+  render();
+};
+
+window._resetAll = async () => {
+  if (!confirm('Reset ALL brackets? This cannot be undone.')) return;
+  pool.actualResults = {};
+  await savePool();
+  for (const p of pool.participants) {
+    await dbSet('brackets/' + sanitizeKey(p), defaultBracket());
+  }
+  if (myBracket) myBracket = defaultBracket();
+  render();
+};
+
+window._togSetting = async (k) => {
+  pool.settings[k] = !pool.settings[k];
+  await savePool(); render();
+};
+
+window._rmv = async (n) => {
+  if (!confirm('Remove ' + n + '?')) return;
+  pool.participants = pool.participants.filter(p => p !== n);
+  await savePool(); render();
+};
+
+window._viewOne = async (name) => {
+  viewUser = name; viewBracket = null; tab = 'viewone'; render();
+  viewBracket = await dbGet('brackets/' + sanitizeKey(name)) || defaultBracket();
+  render();
+};
+
+async function refreshLBScores() {
+  if (!pool) return;
+  lbScores = [];
+  for (const p of pool.participants) {
+    const br = await dbGet('brackets/' + sanitizeKey(p));
+    lbScores.push({ name: p, score: calcScore(br || defaultBracket()) });
+  }
+}
+
+// ── INIT ──
+if (CONFIGURED) {
+  showLoading('Loading...');
+  dbGet('pool').then(data => {
+    pool = data || defaultPool();
+    render();
+  });
+} else {
+  render();
+}
+</script>
+</body>
+</html>
