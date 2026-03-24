@@ -804,10 +804,10 @@ function tSlot(tid, round, mi, gkey, br, ar, locked, edit) {
   let cls = 'ts';
   if (!t||!t.name) cls += ' empty';
   else if (isWin && aWin) cls += ' winner correct';
-  else if (isWin && aLose && round>0) cls += ' winner wrong';
+  else if (isWin && aLose) cls += ' winner wrong';
   else if (isWin) cls += ' winner';
-  if (locked || round===0) cls += ' nc';
-  const click = (!locked && t && t.name && round>0) ? `onclick="window._pickGroup('${gkey}',${round-1},${mi},${tid})"` : '';
+  if (locked) cls += ' nc';
+  const click = (!locked && t && t.name) ? `onclick="window._pickGroup('${gkey}',${round},${mi},${tid})"` : '';
   return `<div class="${cls}" ${click}>${portraitCard(tid)}</div>`;
 }
 
@@ -1229,8 +1229,13 @@ window._togSetting = async (k) => {
 
 window._rmv = async (n) => {
   if (!confirm('Remove ' + n + '?')) return;
+  if (!pool.participants) pool.participants = [];
   pool.participants = pool.participants.filter(p => p !== n);
-  await savePool(); render();
+  lbScores = lbScores.filter(s => s.name !== n);
+  await savePool();
+  // Also delete their bracket from Firebase
+  await dbSet('brackets/' + sanitizeKey(n), null);
+  render();
 };
 
 window._viewOne = async (name) => {
