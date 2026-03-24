@@ -798,9 +798,6 @@ window._playerLogin = async () => {
     if (user && tab !== 'bracket') render();
   });
 
-  // Load leaderboard scores
-  await refreshLBScores();
-
   tab = 'bracket'; render();
 };
 
@@ -822,7 +819,6 @@ window._doCommLogin = async () => {
     if (user && tab !== 'bracket') render();
   });
 
-  await refreshLBScores();
   tab = 'setup'; render();
 };
 
