@@ -299,6 +299,16 @@ code{background:var(--gold-light);padding:1px 5px;border-radius:4px;font-size:.8
 <div id="app"></div>
 <div id="toast" class="toast"></div>
 
+<!-- Define modal functions immediately so they work before module loads -->
+<script>
+function closeComm() {
+  document.getElementById('comm-modal').classList.add('hidden');
+}
+function doCommLogin() {
+  if (window._doCommLogin) window._doCommLogin();
+}
+</script>
+
 <!-- Commissioner modal -->
 <div id="comm-modal" class="modal-bg hidden">
   <div class="modal">
@@ -306,8 +316,8 @@ code{background:var(--gold-light);padding:1px 5px;border-radius:4px;font-size:.8
     <p>Enter your commissioner password to manage the pool.</p>
     <input type="password" id="comm-pass" placeholder="Password..." style="width:100%;margin-bottom:12px;text-align:center">
     <div style="display:flex;gap:8px">
-      <button class="btn btn-secondary" style="flex:1;justify-content:center" onclick="window.closeComm()">Cancel</button>
-      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="window._doCommLogin()">Enter</button>
+      <button class="btn btn-secondary" style="flex:1;justify-content:center" onclick="closeComm()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="doCommLogin()">Enter</button>
     </div>
     <div id="comm-error" style="color:var(--coral);font-size:.8rem;margin-top:8px"></div>
     <p style="font-size:.7rem;color:var(--border);margin-top:8px">Default password: bookworm</p>
@@ -1051,7 +1061,7 @@ window._doCommLogin = async () => {
     if (p !== pool.settings.commPass) {
       document.getElementById('comm-error').textContent = 'Wrong password.'; return;
     }
-    window.closeComm();
+    closeComm();
     showLoading('Loading commissioner view...');
     user = 'Commissioner'; isComm = true;
     if (poolUnsubscribe) poolUnsubscribe();
