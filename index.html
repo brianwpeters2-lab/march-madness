@@ -1167,42 +1167,60 @@ window.savePool = savePool;
 window._playerLogin = async () => {
   const n = document.getElementById('ln').value.trim();
   if (!n) { document.getElementById('lerr').textContent='Please enter your name.'; return; }
-  showLoading('Joining the pool...');
 
-  try {
-    const existing = await withTimeout(dbGet('pool'), 10000);
-    pool = existing || defaultPool();
-    user = n; isComm = false;
-    if (!pool.participants) pool.participants = [];
-    if (!pool.participants.includes(n)) {
-      pool.participants.push(n);
-      await withTimeout(savePool(), 8000);
+  // Retry up to 3 times on transient failures
+  const MAX_TRIES = 3;
+  for (let attempt = 1; attempt <= MAX_TRIES; attempt++) {
+    showLoading(attempt === 1 ? 'Joining the pool...' : `Retrying... (${attempt}/${MAX_TRIES})`);
+    try {
+      const existing = await withTimeout(dbGet('pool'), 10000);
+      pool = existing || defaultPool();
+      user = n; isComm = false;
+      if (!pool.participants) pool.participants = [];
+      if (!pool.participants.includes(n)) {
+        pool.participants.push(n);
+        isSaving = true;
+        try {
+          await withTimeout(dbSet('pool', pool), 8000);
+        } finally {
+          isSaving = false;
+        }
+      }
+      const key = sanitizeKey(n);
+      const br = await withTimeout(dbGet('brackets/' + key), 8000);
+      myBracket = safeBracket(br);
+      if (!br) await withTimeout(dbSet('brackets/' + key, myBracket), 8000);
+
+      if (poolUnsubscribe) poolUnsubscribe();
+      poolUnsubscribe = dbListen('pool', data => {
+        if (!data || isSaving) return;
+        pool = data;
+        if (user && tab !== 'bracket') render();
+      });
+
+      tab = 'bracket'; render();
+      const el = document.getElementById('mcw');
+      if (el) window._mobileSwipe(el);
+      return; // success — exit retry loop
+
+    } catch(err) {
+      console.error(`Login attempt ${attempt} error:`, err);
+      isSaving = false;
+      user = null; pool = null;
+
+      if (attempt < MAX_TRIES) {
+        // Wait briefly before retrying
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+        continue;
+      }
+
+      // All retries exhausted
+      render();
+      const lerr = document.getElementById('lerr');
+      if (lerr) lerr.textContent = err.message === 'timeout'
+        ? `Connection timed out after ${MAX_TRIES} attempts. Check your internet and try again.`
+        : `Could not connect after ${MAX_TRIES} attempts. Please try again.`;
     }
-    const key = sanitizeKey(n);
-    const br = await withTimeout(dbGet('brackets/' + key), 8000);
-    myBracket = safeBracket(br);
-    if (!br) await withTimeout(dbSet('brackets/' + key, myBracket), 8000);
-
-    if (poolUnsubscribe) poolUnsubscribe();
-    poolUnsubscribe = dbListen('pool', data => {
-      if (!data || isSaving) return;
-      pool = data;
-      if (user && tab !== 'bracket') render();
-    });
-
-    tab = 'bracket'; render();
-    const el = document.getElementById('mcw');
-    if (el) window._mobileSwipe(el);
-
-  } catch(err) {
-    console.error('Login error:', err);
-    isSaving = false; // reset in case savePool left it true
-    user = null; pool = null;
-    render(); // render() will show login screen since user is null
-    const lerr = document.getElementById('lerr');
-    if (lerr) lerr.textContent = err.message === 'timeout'
-      ? 'Connection timed out. Check your internet and try again.'
-      : 'Could not connect to the pool. Check your internet and try again.';
   }
 };
 
