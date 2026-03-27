@@ -484,6 +484,14 @@ function sanitizeKey(name) {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '_');
 }
 
+// Normalize a display name — collapse curly/smart quotes to straight
+function normalizeName(name) {
+  return name
+    .replace(/[\u2018\u2019\u02BC]/g, "'") // curly single quotes -> straight
+    .replace(/[\u201C\u201D]/g, '"')        // curly double quotes -> straight
+    .trim();
+}
+
 // ── Helpers ──
 function dlPast() { return pool.settings.deadline && new Date() > new Date(pool.settings.deadline); }
 function editable() { return !isComm && !pool.settings.locked && !dlPast(); }
@@ -1192,7 +1200,7 @@ window._setCommPass = (v) => { pool.settings.commPass = v; savePool(); };
 window.savePool = savePool;
 
 window._playerLogin = async () => {
-  const n = document.getElementById('ln').value.trim();
+  const n = normalizeName(document.getElementById('ln').value.trim());
   if (!n) { document.getElementById('lerr').textContent='Please enter your name.'; return; }
 
   // Retry up to 3 times on transient failures
@@ -1203,7 +1211,11 @@ window._playerLogin = async () => {
       const existing = await withTimeout(dbGet('pool'), 10000);
       pool = existing || defaultPool();
 
-      const isNewPlayer = !pool.participants || !pool.participants.includes(n);
+      // Case-insensitive, apostrophe-normalized lookup
+      const existingEntry = (pool.participants || []).find(p =>
+        normalizeName(p).toLowerCase() === n.toLowerCase()
+      );
+      const isNewPlayer = !existingEntry;
       const closed = pool.settings.locked || (pool.settings.deadline && new Date() > new Date(pool.settings.deadline));
 
       // Block new registrations after deadline/lock — existing players always get through
@@ -1215,10 +1227,12 @@ window._playerLogin = async () => {
         return;
       }
 
-      user = n; isComm = false;
+      // Use the exact stored name if found (preserves original capitalisation)
+      const resolvedName = existingEntry || n;
+      user = resolvedName; isComm = false;
       if (!pool.participants) pool.participants = [];
       if (isNewPlayer) {
-        pool.participants.push(n);
+        pool.participants.push(resolvedName);
         isSaving = true;
         try {
           await withTimeout(dbSet('pool', pool), 8000);
@@ -1226,7 +1240,7 @@ window._playerLogin = async () => {
           isSaving = false;
         }
       }
-      const key = sanitizeKey(n);
+      const key = sanitizeKey(resolvedName);
       const br = await withTimeout(dbGet('brackets/' + key), 8000);
       myBracket = safeBracket(br);
       if (!br) await withTimeout(dbSet('brackets/' + key, myBracket), 8000);
