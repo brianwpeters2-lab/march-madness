@@ -1209,9 +1209,22 @@ window._playerLogin = async () => {
     try {
       const existing = await withTimeout(dbGet('pool'), 10000);
       pool = existing || defaultPool();
+
+      const isNewPlayer = !pool.participants || !pool.participants.includes(n);
+      const closed = pool.settings.locked || (pool.settings.deadline && new Date() > new Date(pool.settings.deadline));
+
+      // Block new registrations after deadline/lock — existing players always get through
+      if (isNewPlayer && closed) {
+        user = null; pool = null;
+        render();
+        const lerr = document.getElementById('lerr');
+        if (lerr) lerr.textContent = 'Registration is closed. If you already joined, check your name is spelled exactly as you entered it before.';
+        return;
+      }
+
       user = n; isComm = false;
       if (!pool.participants) pool.participants = [];
-      if (!pool.participants.includes(n)) {
+      if (isNewPlayer) {
         pool.participants.push(n);
         isSaving = true;
         try {
