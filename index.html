@@ -418,9 +418,11 @@ function defaultPool() {
 }
 
 function defaultBracket() {
+  // r0 stored in seeded matchup order: 1v8, 2v7, 3v6, 4v5
+  // Group A seeds 1-8 = team indices 0-7, Group B = 8-15
   return {
-    gA: { r0:[0,1,2,3,4,5,6,7],  r1:Array(4).fill(null), r2:Array(2).fill(null), r3:[null] },
-    gB: { r0:[8,9,10,11,12,13,14,15], r1:Array(4).fill(null), r2:Array(2).fill(null), r3:[null] },
+    gA: { r0:[0,7,1,6,2,5,3,4],  r1:Array(4).fill(null), r2:Array(2).fill(null), r3:[null] },
+    gB: { r0:[8,15,9,14,10,13,11,12], r1:Array(4).fill(null), r2:Array(2).fill(null), r3:[null] },
     champ: null
   };
 }
@@ -431,13 +433,13 @@ function safeBracket(br) {
   const def = defaultBracket();
   return {
     gA: {
-      r0: br.gA?.r0 || def.gA.r0,
+      r0: def.gA.r0, // always use canonical seeded order
       r1: br.gA?.r1 || def.gA.r1,
       r2: br.gA?.r2 || def.gA.r2,
       r3: br.gA?.r3 || def.gA.r3,
     },
     gB: {
-      r0: br.gB?.r0 || def.gB.r0,
+      r0: def.gB.r0, // always use canonical seeded order
       r1: br.gB?.r1 || def.gB.r1,
       r2: br.gB?.r2 || def.gB.r2,
       r3: br.gB?.r3 || def.gB.r3,
@@ -718,19 +720,12 @@ function renderMobileBracket(br, edit) {
   // Championship: gA.r3[0] vs gB.r3[0]
 
   const rNames = ['Round of 8', 'Quarterfinals', 'Semifinals'];
-  const seedPairs = [[0,7],[1,6],[2,5],[3,4]];
-
-  function getOrderedR0(gkey) {
-    const base = gkey === 'gA' ? 0 : 8;
-    return seedPairs.map(([a,b]) => [base+a, base+b]);
-  }
 
   function roundComplete(gkey, round) {
     const g = br[gkey];
     const nextRk = 'r'+(round+1);
     if (!g[nextRk]) return false;
-    const pairs = round === 0 ? getOrderedR0(gkey) : mups(round, g);
-    return pairs.every((_, mi) => g[nextRk][mi] !== null && g[nextRk][mi] !== undefined);
+    return mups(round, g).every((_, mi) => g[nextRk][mi] !== null && g[nextRk][mi] !== undefined);
   }
 
   function allGroupRoundsComplete(gkey) {
@@ -751,7 +746,7 @@ function renderMobileBracket(br, edit) {
   for (let ri = 0; ri < 3; ri++) {
     for (const gk of ['gA','gB']) {
       const g = br[gk];
-      const pairs = ri === 0 ? getOrderedR0(gk) : mups(ri, g);
+      const pairs = mups(ri, g); // mups() now correctly reads seeded r0
       pairs.forEach((pair, mi) => {
         const t0 = T(pair[0]), t1 = T(pair[1]);
         if (!t0?.name && !t1?.name) return;
@@ -934,9 +929,7 @@ function renderMobileSummary(br, ar, locked) {
       <div style="font-size:.8rem;font-weight:500;color:var(--gold-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.5rem">${label}</div>`;
 
     for (let ri = 0; ri < 3; ri++) {
-      const pairs = ri === 0
-        ? [[0,7],[1,6],[2,5],[3,4]].map(([a,b]) => [gk==='gA'?a:a+8, gk==='gA'?b:b+8])
-        : mups(ri, g);
+      const pairs = mups(ri, g); // mups() reads canonical seeded r0
       html += `<div style="font-size:.72rem;color:var(--muted);margin:.5rem 0 .25rem;font-weight:500">${rNames[ri]}</div>`;
       pairs.forEach((pair, mi) => {
         const nextRk = 'r'+(ri+1);
@@ -1083,7 +1076,7 @@ function renderResults() {
   ['A','B'].forEach(gk => {
     const gkey = 'g'+gk; const ag = ar[gkey] || {};
     const fakeBr = { [gkey]: {
-      r0: gk==='A' ? [0,1,2,3,4,5,6,7] : [8,9,10,11,12,13,14,15],
+      r0: gk==='A' ? [0,7,1,6,2,5,3,4] : [8,15,9,14,10,13,11,12],
       r1: ag.r1 || Array(4).fill(null),
       r2: ag.r2 || Array(2).fill(null),
       r3: ag.r3 || [null]
