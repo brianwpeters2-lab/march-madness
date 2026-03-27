@@ -563,10 +563,15 @@ function renderLogin() {
     <div class="hero-emoji">📚</div>
     <h1>March Madness</h1>
     <div class="subtitle">Characters from Ellie's books</div>
-    <input class="name-input" id="ln" type="text" placeholder="Enter your name to join..." autocomplete="off">
+    <div style="background:var(--gold-light);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;margin:1.25rem 0 1rem;text-align:left">
+      <div style="font-size:.85rem;font-weight:500;color:var(--gold-dark);margin-bottom:4px">First time? Returning player?</div>
+      <div style="font-size:.8rem;color:var(--ink);line-height:1.5">Just enter your name — it's the same whether you're joining for the first time or coming back to edit your picks. <strong>Use the exact same name every time.</strong></div>
+    </div>
+    <input class="name-input" id="ln" type="text" placeholder="Enter your name..." autocomplete="off">
     <br><br>
-    <button class="btn btn-primary" style="width:100%;justify-content:center;font-size:1rem;padding:14px" onclick="window._playerLogin()">Join the Pool →</button>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;font-size:1rem;padding:14px" onclick="window._playerLogin()">Enter the Pool →</button>
     <div id="lerr" style="color:var(--coral);font-size:.82rem;margin-top:8px"></div>
+    <div style="font-size:.75rem;color:var(--muted);margin-top:1rem;line-height:1.5">Forgot the name you used? Contact your administrator for help.</div>
     <div class="comm-trigger" onclick="window._openComm()" title="Commissioner">⚙</div>
   </div></div>`;
 }
