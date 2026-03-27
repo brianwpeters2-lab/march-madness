@@ -148,7 +148,7 @@ h1,h2,h3{font-family:'Playfair Display',serif}
 .alert-err{background:var(--coral-light);color:var(--coral);border:1px solid var(--coral)}
 
 /* Leaderboard */
-.lb-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:10px;background:var(--white);border:1px solid var(--border);margin-bottom:8px}
+.lb-row{display:flex;align-items:center;gap:10px;padding:11px 16px;border-radius:10px;background:var(--white);border:1px solid var(--border);margin-bottom:8px}
 .lb-rank{font-size:1rem;font-family:'Playfair Display',serif;color:var(--muted);width:26px}
 .lb-name{flex:1;font-weight:500}
 .lb-score{font-size:1rem;font-family:'Playfair Display',serif;color:var(--gold-dark)}
@@ -890,7 +890,7 @@ function renderMobileBracket(br, edit) {
   </div>`;
 
   if (allComplete()) {
-    html += `<button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.75rem" onclick="window._mobileNav(-1)">View My Completed Bracket →</button>`;
+    html += `<button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:.75rem" onclick="window._mobileNav(-1)">View My Bracket Summary →</button>`;
   }
 
   html += `</div>`;
@@ -899,15 +899,27 @@ function renderMobileBracket(br, edit) {
 
 function renderMobileSummary(br, ar, locked) {
   const rNames = ['Round of 8', 'Quarterfinals', 'Semifinals'];
+  const isLocked = locked || pool.settings.locked || dlPast();
   let html = `<div style="padding:.5rem 0">`;
 
-  if (locked && (pool.settings.locked || dlPast())) {
+  if (isLocked) {
     html += `<div class="alert alert-info">Brackets are locked — your picks are saved!</div>`;
   } else {
-    html += `<div class="alert alert-hint">All picks submitted! 🎉</div>`;
+    html += `<div style="background:#E8F5E9;border:1px solid #66BB6A;border-radius:10px;padding:12px 14px;margin-bottom:.75rem;display:flex;align-items:center;gap:10px">
+      <span style="font-size:1.1rem">✏️</span>
+      <div>
+        <div style="font-size:.85rem;font-weight:500;color:#2E7D32">Your bracket is saved</div>
+        <div style="font-size:.75rem;color:#388E3C;margin-top:2px">You can still change any pick before the deadline</div>
+      </div>
+    </div>`;
   }
 
-  html += `<button class="btn btn-secondary" style="width:100%;justify-content:center;margin-bottom:1rem" onclick="window._mobileNav(0)">← Edit Picks</button>`;
+  const editBtn = isLocked
+    ? ''
+    : `<button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:.75rem" onclick="window._mobileNav(0)">✏️ Edit My Picks</button>`;
+  const viewBtn = `<button class="btn btn-secondary" style="width:100%;justify-content:center;margin-bottom:1rem" onclick="window._mobileNav(0)">← Back to Picks</button>`;
+
+  html += isLocked ? viewBtn : editBtn;
 
   ['gA','gB'].forEach(gk => {
     const g = br[gk];
@@ -1001,10 +1013,27 @@ function renderLB() {
   if (!scores.length) return h + '<div class="empty-state">No players yet.</div>';
   scores.forEach((p,i) => {
     const m = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.';
+    const ct = T(p.champ);
+    const ar = pool.actualResults || {};
+    const champCorrect = p.champ !== null && p.champ !== undefined && ar.champ === p.champ;
+    const champWrong = p.champ !== null && p.champ !== undefined && ar.champ !== null && ar.champ !== undefined && ar.champ !== p.champ;
+    let pillStyle = 'background:var(--gold-light);border:1px solid var(--gold);';
+    if (champCorrect) pillStyle = 'background:#E8F5E9;border:1px solid #66BB6A;';
+    if (champWrong) pillStyle = 'background:var(--coral-light);border:1px solid var(--coral);';
+    const champPill = ct?.name
+      ? `<div style="display:flex;align-items:center;gap:6px;${pillStyle}border-radius:20px;padding:3px 10px 3px 4px;max-width:160px;overflow:hidden">
+          ${ct.img
+            ? `<img src="${ct.img}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0">`
+            : `<div style="width:24px;height:24px;border-radius:50%;background:var(--gold-light);display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:500;color:var(--gold-dark);flex-shrink:0">${ct.name.slice(0,2).toUpperCase()}</div>`}
+          <span style="font-size:.72rem;font-weight:500;color:var(--gold-dark);overflow:hidden;text-overflow:ellipsis;white-space:nowrap${champCorrect?';color:#2E7D32':champWrong?';color:var(--coral)':''}">${ct.name}</span>
+          ${champCorrect ? '<span style="font-size:.75rem;color:#2E7D32;flex-shrink:0">✓</span>' : champWrong ? '<span style="font-size:.75rem;color:var(--coral);flex-shrink:0">✗</span>' : ''}
+        </div>`
+      : `<span style="font-size:.72rem;color:var(--muted);font-style:italic">no pick yet</span>`;
     h += `<div class="lb-row${p.name===user?' me':''}">
       <div class="lb-rank">${m}</div>
-      <div class="lb-name">${p.name}${p.name===user?' (you)':''}</div>
-      <div class="lb-score">${p.score} pts</div>
+      <div class="lb-name" style="flex:1;min-width:0">${p.name}${p.name===user?' <span style="font-size:.7rem;color:var(--muted)">(you)</span>':''}</div>
+      <div style="flex-shrink:0">${champPill}</div>
+      <div class="lb-score" style="flex-shrink:0">${p.score} pts</div>
     </div>`;
   });
   return h;
@@ -1457,7 +1486,8 @@ async function refreshLBScores() {
   const results = await Promise.all(
     pool.participants.map(async p => {
       const br = await dbGet('brackets/' + sanitizeKey(p));
-      return { name: p, score: calcScore(safeBracket(br)) };
+      const safe = safeBracket(br);
+      return { name: p, score: calcScore(safe), champ: safe.champ ?? null };
     })
   );
   lbScores = results;
